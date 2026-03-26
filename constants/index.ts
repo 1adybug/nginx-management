@@ -27,3 +27,9 @@ export const BetterAuthSecret = process.env.BETTER_AUTH_SECRET
 export const BetterAuthUrl = process.env.BETTER_AUTH_URL
 
 export const NextPublicBetterAuthUrl = process.env.NEXT_PUBLIC_BETTER_AUTH_URL
+
+export const AllowCurrentUserUpdateNickname =
+    process.env.ALLOW_CURRENT_USER_UPDATE_NICKNAME === undefined ? true : getBooleanFromEnv(process.env.ALLOW_CURRENT_USER_UPDATE_NICKNAME)
+
+export const AllowCurrentUserUpdatePhoneNumber =
+    process.env.ALLOW_CURRENT_USER_UPDATE_PHONE_NUMBER === undefined ? true : getBooleanFromEnv(process.env.ALLOW_CURRENT_USER_UPDATE_PHONE_NUMBER)

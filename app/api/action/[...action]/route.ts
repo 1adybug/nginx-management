@@ -11,8 +11,10 @@ import { login } from "@/shared/login"
 import { queryErrorLog } from "@/shared/queryErrorLog"
 import { queryOperationLog } from "@/shared/queryOperationLog"
 import { queryUser } from "@/shared/queryUser"
+import { sendCurrentUserPhoneNumberOtp } from "@/shared/sendCurrentUserPhoneNumberOtp"
 import { sendPhoneNumberOtp } from "@/shared/sendPhoneNumberOtp"
 import { unbanUser } from "@/shared/unbanUser"
+import { updateCurrentUserProfile } from "@/shared/updateCurrentUserProfile"
 import { updateUser } from "@/shared/updateUser"
 
 const routeMap = new Map<string, RouteHandler>()
@@ -35,8 +37,10 @@ registerRoute(login)
 registerRoute(queryErrorLog)
 registerRoute(queryOperationLog)
 registerRoute(queryUser)
+registerRoute(sendCurrentUserPhoneNumberOtp)
 registerRoute(sendPhoneNumberOtp)
 registerRoute(unbanUser)
+registerRoute(updateCurrentUserProfile)
 registerRoute(updateUser)
 
 export function POST(request: NextRequest) {

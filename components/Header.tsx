@@ -28,6 +28,10 @@ const navs: NavItem[] = [
         name: "首页",
     },
     {
+        href: "/profile",
+        name: "个人中心",
+    },
+    {
         href: "/user",
         name: "用户管理",
         filter: isAdmin,
