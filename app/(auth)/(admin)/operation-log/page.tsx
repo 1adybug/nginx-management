@@ -36,7 +36,7 @@ function parseJson(value: string) {
 const Page: FC = () => {
     const [query, setQuery] = transformState(
         useQueryState({
-            keys: ["action", "ip", "userAgent", "name"],
+            keys: ["action", "ip", "userAgent", "name", "nickname"],
             parse: {
                 createdBefore: naturalParser,
                 createdAfter: naturalParser,
@@ -98,6 +98,13 @@ const Page: FC = () => {
             render(value, record) {
                 return !!record.userId && !!value && <UserButton data={{ id: record.userId, name: value }} />
             },
+        },
+        {
+            title: "昵称",
+            dataIndex: "nickname",
+            align: "center",
+            sorter: true,
+            sortOrder: getSortOrder(query, "nickname"),
         },
         {
             title: "手机号",
@@ -205,6 +212,9 @@ const Page: FC = () => {
                         <Input allowClear />
                     </FormItem>
                     <FormItem<FormParams> name="name" label="用户名">
+                        <Input allowClear />
+                    </FormItem>
+                    <FormItem<FormParams> name="nickname" label="昵称">
                         <Input allowClear />
                     </FormItem>
                     <FormItem<FormParams> name="ip" label="IP">

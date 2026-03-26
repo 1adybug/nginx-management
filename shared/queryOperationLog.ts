@@ -24,6 +24,7 @@ export const queryOperationLog = createSharedFn({
     ip = "",
     userAgent = "",
     name = "",
+    nickname = "",
     pageNum = defaultPageNum,
     pageSize = defaultPageSize,
     sortBy = "createdAt",
@@ -49,6 +50,10 @@ export const queryOperationLog = createSharedFn({
                 .split(" ")
                 .filter(Boolean)
                 .map(item => ({ name: { contains: item } })),
+            ...nickname
+                .split(" ")
+                .filter(Boolean)
+                .map(item => ({ nickname: { contains: item } })),
         ],
         createdAt: {
             gte: createdAfter,
@@ -75,7 +80,7 @@ export const queryOperationLog = createSharedFn({
     ]
 
     if (sortBy !== "createdAt") {
-        if (sortBy === "action" || sortBy === "ip" || sortBy === "userAgent") {
+        if (sortBy === "action" || sortBy === "ip" || sortBy === "userAgent" || sortBy === "nickname") {
             orderBy.unshift({
                 [sortBy]: sortOrder,
             })
