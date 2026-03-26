@@ -61,7 +61,7 @@ RUN mkdir -p /app/data && chown -R nextjs:nodejs /app/data
 RUN npm install -g "prisma@$(node -p "require('./prisma-package.json').version")" --registry=https://registry.npmmirror.com \
     && rm ./prisma-package.json
 
-# 创建启动脚本，先以 root 执行 prisma db push，然后切换用户运行应用
+# 创建启动脚本，先以 root 执行 prisma migrate deploy，然后切换用户运行应用
 RUN printf '#!/bin/sh\nset -e\nmkdir -p /app/data\nchown -R nextjs:nodejs /app/data\nchmod -R u+rwX,g+rwX /app/data\nprisma migrate deploy\nchown -R nextjs:nodejs /app/data\nchmod -R u+rwX,g+rwX /app/data\nexec gosu nextjs node server.js\n' > /app/entrypoint.sh && chmod +x /app/entrypoint.sh
 
 EXPOSE 3000
