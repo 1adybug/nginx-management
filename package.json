@@ -1,5 +1,5 @@
 {
-    "name": "geshu-next-template",
+    "name": "geshu-nginx-management",
     "version": "0.1.0",
     "private": true,
     "scripts": {
