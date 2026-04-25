@@ -43,6 +43,35 @@ model ErrorLog {
     user        User?    @relation(fields: [userId], references: [id])
 }
 
+model ProxyService {
+    id                   String    @id @default(uuid())
+    createdAt            DateTime  @default(now())
+    updatedAt            DateTime  @updatedAt
+    serviceType          String    @default("reverseProxy")
+    sourceAddress        String
+    httpPort             Int       @default(80)
+    httpsPort            Int       @default(443)
+    targetProtocol       String    @default("http")
+    targetHost           String
+    targetPort           Int
+    websocketEnabled     Boolean   @default(true)
+    tcpForwardEnabled    Boolean   @default(true)
+    udpForwardEnabled    Boolean   @default(false)
+    enabled              Boolean   @default(true)
+    httpsEnabled         Boolean   @default(false)
+    http2HttpsEnabled    Boolean   @default(false)
+    certificateDays      Int       @default(3650)
+    certificatePath      String?
+    certificateKeyPath   String?
+    certificateExpiresAt DateTime?
+    lastAppliedAt        DateTime?
+    lastApplyError       String?
+    remark               String?
+
+    @@index([sourceAddress])
+    @@index([targetHost])
+}
+
 enum Role {
     admin
     user

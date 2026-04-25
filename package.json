@@ -1,10 +1,11 @@
 {
-    "name": "geshu-nginx-management",
+    "name": "nginx-management",
     "version": "0.1.0",
     "private": true,
     "scripts": {
         "dev": "sdnext dev next dev --turbopack --hostname 0.0.0.0",
         "build": "sdnext build next build",
+        "build:docker": "docker build -t luzixu/nginx-management .",
         "start": "next start",
         "auth:secret": "node -e \"console.log(require('node:crypto').randomBytes(32).toString('hex'))\"",
         "lint": "eslint .",

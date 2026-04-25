@@ -1,5 +1,3 @@
-import { FC } from "react"
-
-const Page: FC = () => <div>Hello, World!</div>
+import Page from "./(admin)/proxy-service/page"
 
 export default Page

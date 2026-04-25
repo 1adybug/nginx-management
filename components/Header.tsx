@@ -25,7 +25,7 @@ export interface NavItem {
 const navs: NavItem[] = [
     {
         href: "/",
-        name: "首页",
+        name: "代理服务",
     },
     {
         href: "/profile",

@@ -57,7 +57,6 @@ test.mjs
 test.ts
 test
 prisma/generated
-prisma/migrations
 
 installer
 installer.exe

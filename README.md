@@ -42,6 +42,8 @@ git remote set-url --push template no_push://template
 | `DATABASE_URL`                           | 按部署方式 | 数据库连接字符串（如改用外部数据库时使用） | `postgresql://...`            |
 | `JWT_SECRET`                             | 按认证配置 | 兼容旧认证方案时使用（当前默认不依赖）     | `your_jwt_secret`             |
 | `NEXT_TELEMETRY_DISABLED`                | 否         | 是否关闭 Next 遥测上报                     | `1`                           |
+| `NGINX_PROXY_APPLY_ENABLED`              | 否         | 是否启用代理服务的 Nginx 自动生效          | 生产默认 `1`，开发默认 `0`    |
+| `NGINX_COMMAND`                          | 否         | Nginx 命令路径                             | `nginx`                       |
 | `REDIS_URL`                              | 按需       | Redis 地址（仅使用 Redis 限流存储时需要）  | `redis://127.0.0.1:6379`      |
 | `AUTO_BACKUP_ENABLED`                    | 否         | 是否开启应用内自动备份                     | `0`（默认关闭）               |
 | `AUTO_BACKUP_SCHEDULE_HOURLY_EVERY`      | 否         | 每小时备份的执行周期                       | `1`                           |
@@ -92,6 +94,11 @@ ALLOW_CURRENT_USER_UPDATE_PHONE_NUMBER="1"
 NEXT_OUTPUT="standalone"
 NEXT_TELEMETRY_DISABLED="1"
 
+# 代理服务
+# 本地默认不自动执行 nginx -t / reload；生产默认开启
+NGINX_PROXY_APPLY_ENABLED="0"
+NGINX_COMMAND="nginx"
+
 # 可选：仅在你启用 Redis 限流存储时使用
 REDIS_URL="redis://127.0.0.1:6379"
 
@@ -133,6 +140,20 @@ AUTO_BACKUP_S3_FORCE_PATH_STYLE="1"
 1. 浏览器当前域名 `window.location.origin`
 2. `NEXT_PUBLIC_BETTER_AUTH_URL`
 3. 开发环境兜底 `http://localhost:3000`
+
+## 代理服务
+
+项目支持在后台创建内网反向代理和端口转发规则，并由应用写入 Nginx 配置、生成自签证书、执行 `nginx -t` 和 reload。
+
+能力范围：
+
+- 支持域名、IPv4、IPv6 作为访问地址和目标地址
+- IPv6 可填写 `fd00::1` 或 `[fd00::1]`，系统会统一保存为 `fd00::1`
+- 支持 HTTP、HTTPS、自签证书、HTTP 跳转 HTTPS、WebSocket 转发
+- 支持 TCP / UDP 端口转发，SSL 端口转发仅支持 TCP
+- 不支持 Let’s Encrypt、证书上传、自定义 location、高级 Nginx 配置、访问列表、缓存和限速
+
+Docker 镜像默认会启动 Nginx，并暴露 `80`、`443`、`3000` 端口。IPv6 外部访问还需要宿主机和 Docker 网络启用 IPv6。
 
 ## 自动备份
 
