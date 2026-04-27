@@ -16,10 +16,9 @@ import {
 } from "@/constants/systemSettings"
 
 import { prisma } from "@/prisma"
+import { DatabaseUrl } from "@/prisma/databaseUrl"
 
 import { ClientError } from "@/utils/clientError"
-
-import { DatabaseUrl } from "./databaseUrl"
 
 export interface SystemSettingValueMap {
     [key: string]: string | undefined

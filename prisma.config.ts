@@ -1,8 +1,8 @@
-import { defineConfig } from "prisma/config"
+import type { PrismaConfig } from "prisma"
 
-import { DatabaseUrl } from "./server/databaseUrl"
+import { DatabaseUrl } from "./prisma/databaseUrl"
 
-export default defineConfig({
+const config = {
     schema: "prisma/schema.prisma",
     migrations: {
         path: "prisma/migrations",
@@ -10,4 +10,6 @@ export default defineConfig({
     datasource: {
         url: DatabaseUrl,
     },
-})
+} satisfies PrismaConfig
+
+export default config
