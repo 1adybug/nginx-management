@@ -21,7 +21,6 @@ export const SystemSettingGroupKey = {
 export type SystemSettingGroupKey = (typeof SystemSettingGroupKey)[keyof typeof SystemSettingGroupKey]
 
 export const SystemSettingKey = {
-    默认邮箱域名: "DEFAULT_EMAIL_DOMAIN",
     打印验证码日志: "PRINT_AUTH_OTP",
     全局限流: "RATE_LIMIT_ENABLED",
     允许修改昵称: "ALLOW_CURRENT_USER_UPDATE_NICKNAME",
@@ -86,7 +85,7 @@ export const SystemSettingGroups: SystemSettingGroupDefinition[] = [
     {
         key: SystemSettingGroupKey.基础设置,
         label: "基础设置",
-        description: "管理注册邮箱域名和用户自助修改能力。",
+        description: "管理用户自助修改能力。",
     },
     {
         key: SystemSettingGroupKey.短信设置,
@@ -106,16 +105,6 @@ export const SystemSettingGroups: SystemSettingGroupDefinition[] = [
 ]
 
 export const SystemSettingDefinitions: SystemSettingDefinition[] = [
-    {
-        key: SystemSettingKey.默认邮箱域名,
-        group: SystemSettingGroupKey.基础设置,
-        kind: SystemSettingValueKind.域名,
-        label: "默认邮箱域名",
-        description: "手机号注册时生成临时邮箱所使用的域名。",
-        defaultValue: "example.com",
-        placeholder: "example.com",
-        required: true,
-    },
     {
         key: SystemSettingKey.允许修改昵称,
         group: SystemSettingGroupKey.基础设置,

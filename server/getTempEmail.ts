@@ -1,8 +1,10 @@
-import { SystemSettingKey } from "@/constants/systemSettings"
+const DefaultEmailDomain = "example.com"
 
-import { getCachedSystemSettingValue } from "./systemSettings"
+export function getDefaultEmailDomain() {
+    return process.env.DEFAULT_EMAIL_DOMAIN?.trim() || DefaultEmailDomain
+}
 
 export function getTempEmail(phoneNumber: string) {
-    const defaultEmailDomain = getCachedSystemSettingValue(SystemSettingKey.默认邮箱域名)
+    const defaultEmailDomain = getDefaultEmailDomain()
     return `${crypto.randomUUID()}@${defaultEmailDomain}`
 }
