@@ -1,0 +1,324 @@
+export const SystemSettingValueKind = {
+    文本: "text",
+    密钥: "secret",
+    布尔: "boolean",
+    可选布尔: "optionalBoolean",
+    正整数: "positiveInteger",
+    时长: "duration",
+    域名: "domain",
+    地址: "url",
+} as const
+
+export type SystemSettingValueKind = (typeof SystemSettingValueKind)[keyof typeof SystemSettingValueKind]
+
+export const SystemSettingGroupKey = {
+    基础设置: "base",
+    短信设置: "sms",
+    限流设置: "rate-limit",
+    自动备份: "auto-backup",
+} as const
+
+export type SystemSettingGroupKey = (typeof SystemSettingGroupKey)[keyof typeof SystemSettingGroupKey]
+
+export const SystemSettingKey = {
+    默认邮箱域名: "DEFAULT_EMAIL_DOMAIN",
+    内网短信: "IS_INTRANET",
+    阿里云短信密钥ID: "ALIYUN_ACCESS_KEY_ID",
+    阿里云短信密钥Secret: "ALIYUN_ACCESS_KEY_SECRET",
+    内网短信地址: "QJP_SMS_URL",
+    全局限流: "RATE_LIMIT_ENABLED",
+    允许修改昵称: "ALLOW_CURRENT_USER_UPDATE_NICKNAME",
+    允许修改手机号: "ALLOW_CURRENT_USER_UPDATE_PHONE_NUMBER",
+    自动备份: "AUTO_BACKUP_ENABLED",
+    小时备份周期: "AUTO_BACKUP_SCHEDULE_HOURLY_EVERY",
+    小时备份保留数量: "AUTO_BACKUP_SCHEDULE_HOURLY_RETAIN",
+    每日备份周期: "AUTO_BACKUP_SCHEDULE_DAILY_EVERY",
+    每日备份保留数量: "AUTO_BACKUP_SCHEDULE_DAILY_RETAIN",
+    每周备份周期: "AUTO_BACKUP_SCHEDULE_WEEKLY_EVERY",
+    每周备份保留数量: "AUTO_BACKUP_SCHEDULE_WEEKLY_RETAIN",
+    每月备份周期: "AUTO_BACKUP_SCHEDULE_MONTHLY_EVERY",
+    每月备份保留数量: "AUTO_BACKUP_SCHEDULE_MONTHLY_RETAIN",
+    自动备份日志保留: "AUTO_BACKUP_LOG_RETENTION",
+    自动备份S3地址: "AUTO_BACKUP_S3_ENDPOINT",
+    自动备份S3区域: "AUTO_BACKUP_S3_REGION",
+    自动备份S3桶: "AUTO_BACKUP_S3_BUCKET",
+    自动备份S3密钥ID: "AUTO_BACKUP_S3_ACCESS_KEY_ID",
+    自动备份S3密钥Secret: "AUTO_BACKUP_S3_SECRET_ACCESS_KEY",
+    自动备份S3前缀: "AUTO_BACKUP_S3_PREFIX",
+    自动备份S3PathStyle: "AUTO_BACKUP_S3_FORCE_PATH_STYLE",
+} as const
+
+export type SystemSettingKey = (typeof SystemSettingKey)[keyof typeof SystemSettingKey]
+
+export interface SystemSettingGroupDefinition {
+    key: SystemSettingGroupKey
+    label: string
+    description: string
+}
+
+export interface SystemSettingDefinition {
+    key: SystemSettingKey
+    group: SystemSettingGroupKey
+    kind: SystemSettingValueKind
+    label: string
+    description: string
+    defaultValue: string
+    placeholder?: string
+    required?: boolean
+}
+
+export interface PublicSystemSetting {
+    key: SystemSettingKey
+    kind: SystemSettingValueKind
+    label: string
+    description: string
+    value?: string
+    hasValue: boolean
+    secret: boolean
+    placeholder?: string
+}
+
+export interface PublicSystemSettingGroup {
+    key: SystemSettingGroupKey
+    label: string
+    description: string
+    settings: PublicSystemSetting[]
+}
+
+export const SystemSettingGroups: SystemSettingGroupDefinition[] = [
+    {
+        key: SystemSettingGroupKey.基础设置,
+        label: "基础设置",
+        description: "管理注册邮箱域名和用户自助修改能力。",
+    },
+    {
+        key: SystemSettingGroupKey.短信设置,
+        label: "短信设置",
+        description: "配置公网阿里云短信或内网短信通道。",
+    },
+    {
+        key: SystemSettingGroupKey.限流设置,
+        label: "限流设置",
+        description: "控制服务端动作的全局限流开关。",
+    },
+    {
+        key: SystemSettingGroupKey.自动备份,
+        label: "自动备份",
+        description: "配置本地备份策略和 S3 兼容对象存储上传。",
+    },
+]
+
+export const SystemSettingDefinitions: SystemSettingDefinition[] = [
+    {
+        key: SystemSettingKey.默认邮箱域名,
+        group: SystemSettingGroupKey.基础设置,
+        kind: SystemSettingValueKind.域名,
+        label: "默认邮箱域名",
+        description: "手机号注册时生成临时邮箱所使用的域名。",
+        defaultValue: "example.com",
+        placeholder: "example.com",
+        required: true,
+    },
+    {
+        key: SystemSettingKey.允许修改昵称,
+        group: SystemSettingGroupKey.基础设置,
+        kind: SystemSettingValueKind.布尔,
+        label: "允许用户修改昵称",
+        description: "关闭后，个人中心不再显示昵称编辑入口。",
+        defaultValue: "1",
+    },
+    {
+        key: SystemSettingKey.允许修改手机号,
+        group: SystemSettingGroupKey.基础设置,
+        kind: SystemSettingValueKind.布尔,
+        label: "允许用户修改手机号",
+        description: "关闭后，个人中心不再显示手机号编辑入口。",
+        defaultValue: "1",
+    },
+    {
+        key: SystemSettingKey.内网短信,
+        group: SystemSettingGroupKey.短信设置,
+        kind: SystemSettingValueKind.布尔,
+        label: "使用内网短信",
+        description: "开启后验证码通过内网短信接口发送，关闭后使用阿里云短信。",
+        defaultValue: "0",
+    },
+    {
+        key: SystemSettingKey.内网短信地址,
+        group: SystemSettingGroupKey.短信设置,
+        kind: SystemSettingValueKind.地址,
+        label: "内网短信地址",
+        description: "内网短信服务的 HTTP 地址，仅启用内网短信时需要。",
+        defaultValue: "",
+        placeholder: "http://sms.example.com/send",
+    },
+    {
+        key: SystemSettingKey.阿里云短信密钥ID,
+        group: SystemSettingGroupKey.短信设置,
+        kind: SystemSettingValueKind.密钥,
+        label: "阿里云 AccessKey ID",
+        description: "公网短信通道使用的阿里云访问密钥 ID。",
+        defaultValue: "",
+    },
+    {
+        key: SystemSettingKey.阿里云短信密钥Secret,
+        group: SystemSettingGroupKey.短信设置,
+        kind: SystemSettingValueKind.密钥,
+        label: "阿里云 AccessKey Secret",
+        description: "公网短信通道使用的阿里云访问密钥 Secret。",
+        defaultValue: "",
+    },
+    {
+        key: SystemSettingKey.全局限流,
+        group: SystemSettingGroupKey.限流设置,
+        kind: SystemSettingValueKind.布尔,
+        label: "启用全局限流",
+        description: "关闭后，服务端动作不再执行全局频率限制。",
+        defaultValue: "1",
+    },
+    {
+        key: SystemSettingKey.自动备份,
+        group: SystemSettingGroupKey.自动备份,
+        kind: SystemSettingValueKind.布尔,
+        label: "启用自动备份",
+        description: "开启后，应用会按策略定期备份 SQLite 数据库。",
+        defaultValue: "0",
+    },
+    {
+        key: SystemSettingKey.小时备份周期,
+        group: SystemSettingGroupKey.自动备份,
+        kind: SystemSettingValueKind.正整数,
+        label: "小时备份周期",
+        description: "每隔多少小时执行一次小时级备份。",
+        defaultValue: "1",
+    },
+    {
+        key: SystemSettingKey.小时备份保留数量,
+        group: SystemSettingGroupKey.自动备份,
+        kind: SystemSettingValueKind.正整数,
+        label: "小时备份保留数量",
+        description: "小时级本地备份最多保留多少份。",
+        defaultValue: "48",
+    },
+    {
+        key: SystemSettingKey.每日备份周期,
+        group: SystemSettingGroupKey.自动备份,
+        kind: SystemSettingValueKind.正整数,
+        label: "每日备份周期",
+        description: "每隔多少天执行一次日级备份。",
+        defaultValue: "1",
+    },
+    {
+        key: SystemSettingKey.每日备份保留数量,
+        group: SystemSettingGroupKey.自动备份,
+        kind: SystemSettingValueKind.正整数,
+        label: "每日备份保留数量",
+        description: "日级本地备份最多保留多少份。",
+        defaultValue: "30",
+    },
+    {
+        key: SystemSettingKey.每周备份周期,
+        group: SystemSettingGroupKey.自动备份,
+        kind: SystemSettingValueKind.正整数,
+        label: "每周备份周期",
+        description: "每隔多少周执行一次周级备份。",
+        defaultValue: "1",
+    },
+    {
+        key: SystemSettingKey.每周备份保留数量,
+        group: SystemSettingGroupKey.自动备份,
+        kind: SystemSettingValueKind.正整数,
+        label: "每周备份保留数量",
+        description: "周级本地备份最多保留多少份。",
+        defaultValue: "12",
+    },
+    {
+        key: SystemSettingKey.每月备份周期,
+        group: SystemSettingGroupKey.自动备份,
+        kind: SystemSettingValueKind.正整数,
+        label: "每月备份周期",
+        description: "每隔多少个月执行一次月级备份。",
+        defaultValue: "1",
+    },
+    {
+        key: SystemSettingKey.每月备份保留数量,
+        group: SystemSettingGroupKey.自动备份,
+        kind: SystemSettingValueKind.正整数,
+        label: "每月备份保留数量",
+        description: "月级本地备份最多保留多少份。",
+        defaultValue: "12",
+    },
+    {
+        key: SystemSettingKey.自动备份日志保留,
+        group: SystemSettingGroupKey.自动备份,
+        kind: SystemSettingValueKind.时长,
+        label: "日志保留时长",
+        description: "自动清理操作日志和错误日志时保留的时长。",
+        defaultValue: "365d",
+        placeholder: "365d",
+    },
+    {
+        key: SystemSettingKey.自动备份S3地址,
+        group: SystemSettingGroupKey.自动备份,
+        kind: SystemSettingValueKind.地址,
+        label: "S3 地址",
+        description: "S3 或兼容对象存储的 endpoint。",
+        defaultValue: "",
+        placeholder: "https://s3.example.com",
+    },
+    {
+        key: SystemSettingKey.自动备份S3区域,
+        group: SystemSettingGroupKey.自动备份,
+        kind: SystemSettingValueKind.文本,
+        label: "S3 区域",
+        description: "S3 或兼容对象存储的区域。",
+        defaultValue: "",
+        placeholder: "auto",
+    },
+    {
+        key: SystemSettingKey.自动备份S3桶,
+        group: SystemSettingGroupKey.自动备份,
+        kind: SystemSettingValueKind.文本,
+        label: "S3 存储桶",
+        description: "用于保存备份文件的对象存储桶。",
+        defaultValue: "",
+        placeholder: "example-backups",
+    },
+    {
+        key: SystemSettingKey.自动备份S3密钥ID,
+        group: SystemSettingGroupKey.自动备份,
+        kind: SystemSettingValueKind.密钥,
+        label: "S3 AccessKey ID",
+        description: "对象存储访问密钥 ID。",
+        defaultValue: "",
+    },
+    {
+        key: SystemSettingKey.自动备份S3密钥Secret,
+        group: SystemSettingGroupKey.自动备份,
+        kind: SystemSettingValueKind.密钥,
+        label: "S3 AccessKey Secret",
+        description: "对象存储访问密钥 Secret。",
+        defaultValue: "",
+    },
+    {
+        key: SystemSettingKey.自动备份S3前缀,
+        group: SystemSettingGroupKey.自动备份,
+        kind: SystemSettingValueKind.文本,
+        label: "S3 对象前缀",
+        description: "上传到对象存储时使用的对象 key 前缀。",
+        defaultValue: "geshu-next-template",
+        placeholder: "geshu-next-template",
+    },
+    {
+        key: SystemSettingKey.自动备份S3PathStyle,
+        group: SystemSettingGroupKey.自动备份,
+        kind: SystemSettingValueKind.可选布尔,
+        label: "S3 Path Style",
+        description: "兼容部分 S3 网关时使用，未设置则交由 SDK 默认处理。",
+        defaultValue: "",
+    },
+]
+
+export function getSystemSettingDefinition(key: string) {
+    return SystemSettingDefinitions.find(definition => definition.key === key)
+}

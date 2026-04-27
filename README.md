@@ -13,59 +13,31 @@ git remote set-url --push template no_push://template
 
 ## env 文件
 
-项目目前主要使用服务端环境变量，建议在本地使用 `.env` 或 `.env.local`，生产环境使用部署平台注入变量。
+项目只将启动、构建、认证核心配置放在 `.env` 或部署平台环境变量中。短信、限流、用户资料开关、自动备份等运行时配置请登录后台后在“系统设置”页面维护。
 
 说明：
 
 - 以 `NEXT_PUBLIC_` 开头的变量会暴露给浏览器，本项目当前无需配置这类变量
 - `NODE_ENV` 由运行命令和框架控制，一般不需要手动设置
 - `BETTER_AUTH_SECRET` 在生产环境是强制项，未配置会导致服务启动失败；开发环境会使用仅本地可用的兜底值
-- 下面表格中的“必填”是按当前代码路径和默认实现整理
+- 系统设置中的配置不读取同名环境变量，首次初始化时只写入代码默认值
 
 ### 变量清单
 
-| 变量名                                   | 必填       | 说明                                       | 示例 / 默认值                 |
-| ---------------------------------------- | ---------- | ------------------------------------------ | ----------------------------- |
-| `COOKIE_PREFIX`                          | 是         | 登录相关 Cookie 前缀                       | `geshu`                       |
-| `DEFAULT_EMAIL_DOMAIN`                   | 是         | 临时邮箱域名（用于手机号生成邮箱）         | `example.com`                 |
-| `BETTER_AUTH_SECRET`                     | 是         | Better Auth 签名密钥                       | `your_better_auth_secret`     |
-| `BETTER_AUTH_URL`                        | 按需       | 服务端 Better Auth 基础地址                | `https://example.com`         |
-| `NEXT_PUBLIC_BETTER_AUTH_URL`            | 按需       | 客户端 Better Auth 基础地址                | `https://example.com`         |
-| `IS_INTRANET`                            | 否         | 是否走内网短信通道                         | `0`（默认关闭）               |
-| `ALIYUN_ACCESS_KEY_ID`                   | 按需       | 阿里云短信密钥 ID（公网短信时需要）        | `your_key_id`                 |
-| `ALIYUN_ACCESS_KEY_SECRET`               | 按需       | 阿里云短信密钥 Secret（公网短信时需要）    | `your_key_secret`             |
-| `QJP_SMS_URL`                            | 按需       | 内网短信服务地址（内网短信时需要）         | `http://sms.example.com/send` |
-| `RATE_LIMIT_ENABLED`                     | 否         | 全局限流开关                               | `1`（默认开启）               |
-| `ALLOW_CURRENT_USER_UPDATE_NICKNAME`     | 否         | 是否允许用户自行修改昵称                   | `1`（默认开启）               |
-| `ALLOW_CURRENT_USER_UPDATE_PHONE_NUMBER` | 否         | 是否允许用户自行修改手机号                 | `1`（默认开启）               |
-| `NEXT_OUTPUT`                            | 否         | Next 构建输出模式                          | `standalone` / `export`       |
-| `DATABASE_URL`                           | 按部署方式 | 数据库连接字符串（如改用外部数据库时使用） | `postgresql://...`            |
-| `JWT_SECRET`                             | 按认证配置 | 兼容旧认证方案时使用（当前默认不依赖）     | `your_jwt_secret`             |
-| `NEXT_TELEMETRY_DISABLED`                | 否         | 是否关闭 Next 遥测上报                     | `1`                           |
-| `REDIS_URL`                              | 按需       | Redis 地址（仅使用 Redis 限流存储时需要）  | `redis://127.0.0.1:6379`      |
-| `AUTO_BACKUP_ENABLED`                    | 否         | 是否开启应用内自动备份                     | `0`（默认关闭）               |
-| `AUTO_BACKUP_SCHEDULE_HOURLY_EVERY`      | 否         | 每小时备份的执行周期                       | `1`                           |
-| `AUTO_BACKUP_SCHEDULE_HOURLY_RETAIN`     | 否         | 每小时备份的保留数量                       | `48`                          |
-| `AUTO_BACKUP_SCHEDULE_DAILY_EVERY`       | 否         | 每日备份的执行周期                         | `1`                           |
-| `AUTO_BACKUP_SCHEDULE_DAILY_RETAIN`      | 否         | 每日备份的保留数量                         | `30`                          |
-| `AUTO_BACKUP_SCHEDULE_WEEKLY_EVERY`      | 否         | 每周备份的执行周期                         | `1`                           |
-| `AUTO_BACKUP_SCHEDULE_WEEKLY_RETAIN`     | 否         | 每周备份的保留数量                         | `12`                          |
-| `AUTO_BACKUP_SCHEDULE_MONTHLY_EVERY`     | 否         | 每月备份的执行周期                         | `1`                           |
-| `AUTO_BACKUP_SCHEDULE_MONTHLY_RETAIN`    | 否         | 每月备份的保留数量                         | `12`                          |
-| `AUTO_BACKUP_LOG_RETENTION`              | 否         | 日志保留时长                               | `365d`                        |
-| `AUTO_BACKUP_S3_ENDPOINT`                | 按需       | S3 / 兼容对象存储地址                      | `https://s3.example.com`      |
-| `AUTO_BACKUP_S3_REGION`                  | 按需       | S3 / 兼容对象存储区域                      | `auto`                        |
-| `AUTO_BACKUP_S3_BUCKET`                  | 按需       | S3 / 兼容对象存储桶名                      | `example-backups`             |
-| `AUTO_BACKUP_S3_ACCESS_KEY_ID`           | 按需       | S3 / 兼容对象存储访问密钥 ID               | `your_access_key_id`          |
-| `AUTO_BACKUP_S3_SECRET_ACCESS_KEY`       | 按需       | S3 / 兼容对象存储访问密钥 Secret           | `your_secret_access_key`      |
-| `AUTO_BACKUP_S3_PREFIX`                  | 否         | S3 / 兼容对象存储对象前缀                  | `geshu-next-template`         |
-| `AUTO_BACKUP_S3_FORCE_PATH_STYLE`        | 否         | 是否强制使用 Path Style                    | `1`                           |
+| 变量名                        | 必填 | 说明                                    | 示例 / 默认值             |
+| ----------------------------- | ---- | --------------------------------------- | ------------------------- |
+| `COOKIE_PREFIX`               | 是   | 登录相关 Cookie 前缀                    | `geshu`                   |
+| `BETTER_AUTH_SECRET`          | 是   | Better Auth 签名密钥                    | `your_better_auth_secret` |
+| `BETTER_AUTH_URL`             | 按需 | 服务端 Better Auth 基础地址             | `https://example.com`     |
+| `NEXT_PUBLIC_BETTER_AUTH_URL` | 按需 | 客户端 Better Auth 基础地址             | `https://example.com`     |
+| `NEXT_OUTPUT`                 | 否   | Next 构建输出模式                       | `standalone` / `export`   |
+| `NEXT_TELEMETRY_DISABLED`     | 否   | 是否关闭 Next 遥测上报                  | `1`                       |
+| `REDIS_URL`                   | 按需 | Redis 地址（仅接入 Redis 限流存储时用） | `redis://127.0.0.1:6379`  |
 
 ### 推荐的本地 `.env` 示例
 
 ```env
 COOKIE_PREFIX="geshu"
-DEFAULT_EMAIL_DOMAIN="example.com"
 BETTER_AUTH_SECRET="your_better_auth_secret"
 
 # Better Auth URL（按需）
@@ -74,51 +46,12 @@ BETTER_AUTH_URL=""
 # 客户端可选（未配置时使用当前域名）
 NEXT_PUBLIC_BETTER_AUTH_URL=""
 
-IS_INTRANET="0"
-
-# 短信配置（按需启用）
-ALIYUN_ACCESS_KEY_ID=""
-ALIYUN_ACCESS_KEY_SECRET=""
-QJP_SMS_URL=""
-
-# 限流配置
-RATE_LIMIT_ENABLED="1"
-
-# 用户资料自助修改
-ALLOW_CURRENT_USER_UPDATE_NICKNAME="1"
-ALLOW_CURRENT_USER_UPDATE_PHONE_NUMBER="1"
-
 # 构建与运行
 NEXT_OUTPUT="standalone"
 NEXT_TELEMETRY_DISABLED="1"
 
 # 可选：仅在你启用 Redis 限流存储时使用
 REDIS_URL="redis://127.0.0.1:6379"
-
-# 自动备份（默认关闭）
-AUTO_BACKUP_ENABLED="0"
-
-# 频率与保留策略
-AUTO_BACKUP_SCHEDULE_HOURLY_EVERY="1"
-AUTO_BACKUP_SCHEDULE_HOURLY_RETAIN="48"
-AUTO_BACKUP_SCHEDULE_DAILY_EVERY="1"
-AUTO_BACKUP_SCHEDULE_DAILY_RETAIN="30"
-AUTO_BACKUP_SCHEDULE_WEEKLY_EVERY="1"
-AUTO_BACKUP_SCHEDULE_WEEKLY_RETAIN="12"
-AUTO_BACKUP_SCHEDULE_MONTHLY_EVERY="1"
-AUTO_BACKUP_SCHEDULE_MONTHLY_RETAIN="12"
-
-# 日志保留时长
-AUTO_BACKUP_LOG_RETENTION="365d"
-
-# S3 / 兼容对象存储（可选）
-AUTO_BACKUP_S3_ENDPOINT="https://s3.example.com"
-AUTO_BACKUP_S3_REGION="auto"
-AUTO_BACKUP_S3_BUCKET="example-backups"
-AUTO_BACKUP_S3_ACCESS_KEY_ID="your_access_key_id"
-AUTO_BACKUP_S3_SECRET_ACCESS_KEY="your_secret_access_key"
-AUTO_BACKUP_S3_PREFIX="geshu-next-template"
-AUTO_BACKUP_S3_FORCE_PATH_STYLE="1"
 ```
 
 ### Better Auth URL 解析规则
@@ -133,6 +66,21 @@ AUTO_BACKUP_S3_FORCE_PATH_STYLE="1"
 1. 浏览器当前域名 `window.location.origin`
 2. `NEXT_PUBLIC_BETTER_AUTH_URL`
 3. 开发环境兜底 `http://localhost:3000`
+
+## 系统设置
+
+管理员登录后可以在“系统设置”页面维护运行时配置。配置保存在数据库中，保存后无需重启即可影响后续请求或调度。
+
+系统设置不会读取同名环境变量。首次初始化时，缺失的配置项会写入代码默认值；之后以数据库中的值为准。
+
+当前包含的设置：
+
+- 基础设置：默认邮箱域名、是否允许用户修改昵称、是否允许用户修改手机号
+- 短信设置：是否使用内网短信、内网短信地址、阿里云短信密钥
+- 限流设置：是否启用全局限流
+- 自动备份：备份开关、备份频率、保留数量、日志保留时长、S3 / 兼容对象存储配置
+
+密钥类设置只在服务端使用。页面不会回显明文，留空保存表示保持原值不变，输入新值才会覆盖。
 
 ## 自动备份
 
@@ -152,59 +100,33 @@ AUTO_BACKUP_S3_FORCE_PATH_STYLE="1"
 - 每月 1 份，保留 12 个月
 - `OperationLog` 和 `ErrorLog` 默认只保留 1 年内数据
 
-### 环境变量
+### 系统设置
 
-#### `AUTO_BACKUP_ENABLED`
+自动备份配置位于“系统设置 / 自动备份”。保存后会立即同步调度器状态：开启时启动自动备份，关闭时停止自动备份；频率、保留策略和 S3 配置会在后续调度中生效。
+
+#### 备份开关
 
 是否开启自动备份，默认关闭。
 
-支持取值：
+#### 备份频率与保留数量
 
-- `1`
-- `0`
-- `true`
-- `false`
-- `yes`
-- `no`
-- `on`
-- `off`
+每个层级都有两个配置：
 
-#### `AUTO_BACKUP_SCHEDULE_*`
-
-使用平铺环境变量配置备份频率与保留数量，不再支持 JSON 字符串。
-
-示例：
-
-```env
-AUTO_BACKUP_SCHEDULE_HOURLY_EVERY="1"
-AUTO_BACKUP_SCHEDULE_HOURLY_RETAIN="48"
-AUTO_BACKUP_SCHEDULE_DAILY_EVERY="1"
-AUTO_BACKUP_SCHEDULE_DAILY_RETAIN="30"
-AUTO_BACKUP_SCHEDULE_WEEKLY_EVERY="1"
-AUTO_BACKUP_SCHEDULE_WEEKLY_RETAIN="12"
-AUTO_BACKUP_SCHEDULE_MONTHLY_EVERY="1"
-AUTO_BACKUP_SCHEDULE_MONTHLY_RETAIN="12"
-```
-
-字段说明：
-
-- `AUTO_BACKUP_SCHEDULE_*_EVERY`: 每隔多少个周期执行一次
-- `AUTO_BACKUP_SCHEDULE_*_RETAIN`: 当前层级最多保留多少份本地备份
+- 备份周期：每隔多少个周期执行一次
+- 保留数量：当前层级最多保留多少份本地备份
 
 周期说明：
 
-- `AUTO_BACKUP_SCHEDULE_HOURLY_EVERY="2"` 表示每 2 小时备份一次
-- `AUTO_BACKUP_SCHEDULE_DAILY_EVERY="3"` 表示每 3 天备份一次
-- `AUTO_BACKUP_SCHEDULE_WEEKLY_EVERY="2"` 表示每 2 周备份一次
-- `AUTO_BACKUP_SCHEDULE_MONTHLY_EVERY="3"` 表示每 3 个月备份一次
+- 小时备份周期为 `2` 表示每 2 小时备份一次
+- 每日备份周期为 `3` 表示每 3 天备份一次
+- 每周备份周期为 `2` 表示每 2 周备份一次
+- 每月备份周期为 `3` 表示每 3 个月备份一次
 
-所有 `EVERY` 和 `RETAIN` 字段都必须是正整数。
+备份周期和保留数量都必须是正整数。
 
-如果某个字段为空、缺失或不是正整数，只会回退该字段的默认值，不影响其他字段。
+#### 日志保留时长
 
-#### `AUTO_BACKUP_LOG_RETENTION`
-
-日志保留时长，默认 `365d`。
+默认 `365d`。
 
 支持格式：
 
@@ -215,31 +137,17 @@ AUTO_BACKUP_SCHEDULE_MONTHLY_RETAIN="12"
 
 无效时会回退到 `365d`。
 
-#### `AUTO_BACKUP_S3_*`
-
-使用平铺环境变量配置 S3 或兼容对象存储，不再支持 JSON 字符串。
-
-示例：
-
-```env
-AUTO_BACKUP_S3_ENDPOINT="https://s3.example.com"
-AUTO_BACKUP_S3_REGION="auto"
-AUTO_BACKUP_S3_BUCKET="example-backups"
-AUTO_BACKUP_S3_ACCESS_KEY_ID="your_access_key_id"
-AUTO_BACKUP_S3_SECRET_ACCESS_KEY="your_secret_access_key"
-AUTO_BACKUP_S3_PREFIX="geshu-next-template"
-AUTO_BACKUP_S3_FORCE_PATH_STYLE="1"
-```
+#### S3 / 兼容对象存储
 
 字段说明：
 
-- `AUTO_BACKUP_S3_ENDPOINT`: 对象存储地址
-- `AUTO_BACKUP_S3_REGION`: 区域
-- `AUTO_BACKUP_S3_BUCKET`: 桶名
-- `AUTO_BACKUP_S3_ACCESS_KEY_ID`: 访问密钥 ID
-- `AUTO_BACKUP_S3_SECRET_ACCESS_KEY`: 访问密钥 Secret
-- `AUTO_BACKUP_S3_PREFIX`: 可选，对象前缀
-- `AUTO_BACKUP_S3_FORCE_PATH_STYLE`: 可选，兼容部分 S3 网关，支持 `1`、`0`、`true`、`false`、`yes`、`no`、`on`、`off`
+- S3 地址：对象存储地址
+- S3 区域：区域
+- S3 存储桶：桶名
+- S3 AccessKey ID：访问密钥 ID
+- S3 AccessKey Secret：访问密钥 Secret
+- S3 对象前缀：可选，对象前缀
+- S3 Path Style：可选，兼容部分 S3 网关
 
 只要任一必填字段缺失或无效，则只做本地备份，不上传对象存储。
 
@@ -273,7 +181,7 @@ data/backups/
 4. 备份成功后执行完整性校验
 5. 然后按本地保留策略清理旧备份
 6. 每天执行一次日志清理
-7. 如果 `AUTO_BACKUP_S3_*` 配置有效，再将备份压缩后上传到对象存储
+7. 如果 S3 配置有效，再将备份压缩后上传到对象存储
 
 ### 注意事项
 
@@ -290,15 +198,14 @@ data/backups/
 核心入口：
 
 - `server/createResponseFn.ts`
-- `server/rateLimit/index.ts`
-- `server/rateLimit/types.ts`
+- `server/createRateLimit.ts`
 
 ### 1. 快速使用
 
 在 `shared` 函数上定义 `rateLimit` 属性即可，推荐使用 `createRateLimit` 获取完整类型提示：
 
 ```ts
-import { createRateLimit } from "@/server/rateLimit"
+import { createRateLimit } from "@/server/createRateLimit"
 
 export async function login(params: LoginParams) {
     // ...
@@ -349,7 +256,7 @@ export const loginAction = createResponseFn(login)
 当你需要按账号、手机号等字段精细限流时，可以提供 `getKey`：
 
 ```ts
-import { createRateLimit, RateLimitContext } from "@/server/rateLimit"
+import { createRateLimit, RateLimitContext } from "@/server/createRateLimit"
 
 function getLoginRateLimitKey(context: RateLimitContext) {
     const params = context.args[0] as LoginParams | undefined
@@ -384,7 +291,7 @@ someFn.rateLimit = false
 方式二，使用配置对象关闭：
 
 ```ts
-import { createRateLimit } from "@/server/rateLimit"
+import { createRateLimit } from "@/server/createRateLimit"
 
 someFn.rateLimit = createRateLimit({
     enabled: false,
@@ -393,24 +300,20 @@ someFn.rateLimit = createRateLimit({
 
 ### 4. 全局开关
 
-#### 4.1 环境变量开关
+#### 4.1 系统设置开关
 
-通过 `RATE_LIMIT_ENABLED` 控制全局是否启用限流：
-
-- `"1"` / `"true"` / `"yes"` / `"on"`: 开启
-- `"0"` / `"false"` / `"no"` / `"off"`: 关闭
-- 不设置: 默认开启
+通过“系统设置 / 限流设置 / 启用全局限流”控制全局是否启用限流。开发环境默认关闭，其他环境默认开启。
 
 #### 4.2 运行时开关
 
 你也可以在服务端代码中动态切换：
 
 ```ts
-import { isGlobalRateLimitEnabled, setGlobalRateLimitEnabled } from "@/server/rateLimit"
+import { isGlobalRateLimitEnabled, setGlobalRateLimitEnabled } from "@/server/createRateLimit"
 
 setGlobalRateLimitEnabled(false)
 
-const enabled = isGlobalRateLimitEnabled()
+const enabled = await isGlobalRateLimitEnabled()
 console.log(enabled)
 ```
 
@@ -419,7 +322,7 @@ console.log(enabled)
 可以在应用启动时设置全局默认策略：
 
 ```ts
-import { setGlobalRateLimitOptions } from "@/server/rateLimit"
+import { setGlobalRateLimitOptions } from "@/server/createRateLimit"
 
 setGlobalRateLimitOptions({
     limit: 200,
@@ -457,7 +360,8 @@ setGlobalRateLimitOptions({
 
 ```ts
 import { Redis } from "ioredis"
-import { createRedisRateLimitStore, setGlobalRateLimitStore } from "@/server/rateLimit"
+
+import { createRedisRateLimitStore, setGlobalRateLimitStore } from "@/server/createRateLimit"
 
 const redis = new Redis(process.env.REDIS_URL!)
 
