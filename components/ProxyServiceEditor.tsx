@@ -1,5 +1,6 @@
 import { ComponentProps, FC, useEffect } from "react"
 
+import { IconPlus, IconTrash } from "@tabler/icons-react"
 import { Button, Form, Input, InputNumber, Modal, Select, Switch } from "antd"
 import { useForm } from "antd/es/form/Form"
 import FormItem from "antd/es/form/FormItem"
@@ -10,10 +11,15 @@ import { useAddProxyService } from "@/hooks/useAddProxyService"
 import { useGetProxyService } from "@/hooks/useGetProxyService"
 import { useUpdateProxyService } from "@/hooks/useUpdateProxyService"
 
+import { ProxyService } from "@/prisma/generated/client"
+
 import { AddProxyServiceParams, defaultProxyServiceHttpPort, defaultProxyServiceHttpsPort } from "@/schemas/addProxyService"
 import { proxyServiceAddressSchema } from "@/schemas/proxyServiceAddress"
 import { defaultProxyServiceCertificateDays } from "@/schemas/proxyServiceCertificateDays"
-import { proxyServicePortSchema } from "@/schemas/proxyServicePort"
+import { getProxyServiceLocations, ProxyServiceLocationParams } from "@/schemas/proxyServiceLocation"
+import { proxyServiceLocationPathSchema } from "@/schemas/proxyServiceLocationPath"
+import { proxyServiceHttpPortSchema, proxyServicePortSchema } from "@/schemas/proxyServicePort"
+import { proxyServiceTargetPathSchema } from "@/schemas/proxyServiceTargetPath"
 import { ProxyServiceType } from "@/schemas/proxyServiceType"
 import { ProxyTargetProtocol } from "@/schemas/proxyTargetProtocol"
 import { UpdateProxyServiceParams } from "@/schemas/updateProxyService"
@@ -26,6 +32,16 @@ export interface ProxyServiceEditorProps extends Omit<ComponentProps<typeof Moda
 
 export interface GetDefaultProxyServiceFormValuesParams {
     serviceType?: ProxyServiceType
+}
+
+export function getDefaultProxyServiceLocationFormValues(): ProxyServiceLocationParams {
+    return {
+        locationPath: "/",
+        targetProtocol: ProxyTargetProtocol.HTTP,
+        targetHost: "",
+        targetPort: 80,
+        targetPath: "/",
+    }
 }
 
 export function getDefaultProxyServiceFormValues({ serviceType = ProxyServiceType.反向代理 }: GetDefaultProxyServiceFormValuesParams = {}) {
@@ -42,6 +58,17 @@ export function getDefaultProxyServiceFormValues({ serviceType = ProxyServiceTyp
         http2HttpsEnabled: false,
         certificateDays: defaultProxyServiceCertificateDays,
     }
+
+    if (serviceType === ProxyServiceType.反向代理) values.locations = [getDefaultProxyServiceLocationFormValues()]
+
+    return values
+}
+
+export function getProxyServiceFormValues(data: ProxyService) {
+    const values = {
+        ...data,
+        locations: getProxyServiceLocations(data.locations),
+    } as AddProxyServiceParams
 
     return values
 }
@@ -84,13 +111,22 @@ const ProxyServiceEditor: FC<ProxyServiceEditorProps> = ({
 
     useEffect(() => {
         if (!open || !data) return
-        form.setFieldsValue(data as AddProxyServiceParams)
+        form.setFieldsValue(getProxyServiceFormValues(data))
     }, [open, data, form])
 
     useEffect(() => {
         if (open) return
         form.resetFields()
     }, [open, form])
+
+    useEffect(() => {
+        if (!open || isUpdate || isPortForward) return
+
+        const locations = form.getFieldValue("locations")
+        if (locations?.length > 0) return
+
+        form.setFieldValue("locations", [getDefaultProxyServiceLocationFormValues()])
+    }, [open, isUpdate, isPortForward, form])
 
     const isPending = isAddProxyServicePending || isUpdateProxyServicePending
 
@@ -157,29 +193,63 @@ export const ReverseProxyDetailForm: FC = () => (
             <Input autoComplete="off" allowClear placeholder="example.com / 192.168.1.10 / fd00::1" />
         </FormItem>
         <div className="grid grid-cols-2 gap-2">
-            <FormItem<AddProxyServiceParams> name="httpPort" label="HTTP 端口" rules={[schemaToRule(proxyServicePortSchema)]}>
-                <InputNumber className="w-full" min={1} max={65535} />
+            <FormItem<AddProxyServiceParams> name="httpPort" label="HTTP 端口" rules={[schemaToRule(proxyServiceHttpPortSchema)]}>
+                <InputNumber className="w-full" min={0} max={65535} />
             </FormItem>
             <FormItem<AddProxyServiceParams> name="httpsPort" label="HTTPS 端口" rules={[schemaToRule(proxyServicePortSchema)]}>
                 <InputNumber className="w-full" min={1} max={65535} />
             </FormItem>
         </div>
-        <div className="grid grid-cols-4 gap-2">
-            <FormItem<AddProxyServiceParams> name="targetProtocol" label="目标协议">
-                <Select
-                    options={[
-                        { label: "HTTP", value: ProxyTargetProtocol.HTTP },
-                        { label: "HTTPS", value: ProxyTargetProtocol.HTTPS },
-                    ]}
-                />
-            </FormItem>
-            <FormItem<AddProxyServiceParams> name="targetHost" label="目标地址" className="col-span-2" rules={[schemaToRule(proxyServiceAddressSchema)]}>
-                <Input autoComplete="off" allowClear />
-            </FormItem>
-            <FormItem<AddProxyServiceParams> name="targetPort" label="目标端口" rules={[schemaToRule(proxyServicePortSchema)]}>
-                <InputNumber className="w-full" min={1} max={65535} />
-            </FormItem>
-        </div>
+        <FormItem<AddProxyServiceParams> label="路径规则" required>
+            <Form.List name="locations">
+                {(fields, { add, remove }) => (
+                    <div className="flex flex-col gap-3">
+                        {fields.map((field, index) => (
+                            <div key={field.key} className="rounded-md border border-slate-200 bg-slate-50 p-3">
+                                <div className="mb-3 flex items-center justify-between gap-2">
+                                    <span className="text-sm font-medium text-slate-700">{index === 0 ? "Location" : `Location ${index + 1}`}</span>
+                                    <Button
+                                        danger
+                                        type="text"
+                                        size="small"
+                                        disabled={fields.length <= 1}
+                                        icon={<IconTrash size={16} />}
+                                        onClick={() => remove(field.name)}
+                                    />
+                                </div>
+                                <div className="grid grid-cols-1 gap-2 md:grid-cols-[minmax(200px,1fr)_160px]">
+                                    <FormItem name={[field.name, "locationPath"]} label="Location" rules={[schemaToRule(proxyServiceLocationPathSchema)]}>
+                                        <Input autoComplete="off" allowClear placeholder="/path" />
+                                    </FormItem>
+                                    <FormItem name={[field.name, "targetProtocol"]} label="转发协议">
+                                        <Select
+                                            options={[
+                                                { label: "HTTP", value: ProxyTargetProtocol.HTTP },
+                                                { label: "HTTPS", value: ProxyTargetProtocol.HTTPS },
+                                            ]}
+                                        />
+                                    </FormItem>
+                                </div>
+                                <div className="grid grid-cols-1 gap-2 md:grid-cols-[minmax(240px,1.6fr)_172px_minmax(188px,1.4fr)]">
+                                    <FormItem name={[field.name, "targetHost"]} label="转发主机 / IP" rules={[schemaToRule(proxyServiceAddressSchema)]}>
+                                        <Input autoComplete="off" allowClear placeholder="10.0.0.1" />
+                                    </FormItem>
+                                    <FormItem name={[field.name, "targetPort"]} label="转发端口" rules={[schemaToRule(proxyServicePortSchema)]}>
+                                        <InputNumber className="w-full" min={1} max={65535} />
+                                    </FormItem>
+                                    <FormItem name={[field.name, "targetPath"]} label="转发路径" rules={[schemaToRule(proxyServiceTargetPathSchema)]}>
+                                        <Input autoComplete="off" allowClear placeholder="/path/" />
+                                    </FormItem>
+                                </div>
+                            </div>
+                        ))}
+                        <Button type="dashed" icon={<IconPlus size={16} />} onClick={() => add(getDefaultProxyServiceLocationFormValues())}>
+                            添加路径规则
+                        </Button>
+                    </div>
+                )}
+            </Form.List>
+        </FormItem>
         <div className="grid grid-cols-3 gap-2">
             <FormItem<AddProxyServiceParams> name="websocketEnabled" label="WebSocket" valuePropName="checked">
                 <Switch />

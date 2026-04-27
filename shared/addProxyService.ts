@@ -5,6 +5,7 @@ import { ProxyServiceType } from "@/schemas/proxyServiceType"
 
 import { createSharedFn } from "@/server/createSharedFn"
 import { isAdmin } from "@/server/isAdmin"
+import { resolveProxyServiceTarget } from "@/server/proxyServiceData"
 import { syncProxyServices, validateProxyServicePortConflict } from "@/server/syncProxyServices"
 
 export const addProxyService = createSharedFn({
@@ -12,8 +13,11 @@ export const addProxyService = createSharedFn({
     schema: addProxyServiceSchema,
     filter: isAdmin,
 })(async function addProxyService(params) {
+    const target = resolveProxyServiceTarget(params)
+
     const data = {
         ...params,
+        ...target,
         sourceAddress: params.serviceType === ProxyServiceType.端口转发 ? "" : params.sourceAddress!,
     }
 

@@ -149,9 +149,10 @@ AUTO_BACKUP_S3_FORCE_PATH_STYLE="1"
 
 - 支持域名、IPv4、IPv6 作为访问地址和目标地址
 - IPv6 可填写 `fd00::1` 或 `[fd00::1]`，系统会统一保存为 `fd00::1`
-- 支持 HTTP、HTTPS、自签证书、HTTP 跳转 HTTPS、WebSocket 转发
+- 支持自定义 Location 路径规则、HTTP、HTTPS、自签证书、HTTP 跳转 HTTPS、WebSocket 转发
+- 反向代理开启 HTTPS 时，HTTP 端口可填写 `0` 表示不监听 HTTP
 - 支持 TCP / UDP 端口转发，SSL 端口转发仅支持 TCP
-- 不支持 Let’s Encrypt、证书上传、自定义 location、高级 Nginx 配置、访问列表、缓存和限速
+- 不支持 Let’s Encrypt、证书上传、高级 Nginx 配置、访问列表、缓存和限速
 
 Docker 镜像默认会启动 Nginx，并暴露 `80`、`443`、`3000` 端口。IPv6 外部访问还需要宿主机和 Docker 网络启用 IPv6。
 

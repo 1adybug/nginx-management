@@ -54,6 +54,7 @@ model ProxyService {
     targetProtocol       String    @default("http")
     targetHost           String
     targetPort           Int
+    locations            Json      @default("[]")
     websocketEnabled     Boolean   @default(true)
     tcpForwardEnabled    Boolean   @default(true)
     udpForwardEnabled    Boolean   @default(false)

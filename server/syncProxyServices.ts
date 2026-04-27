@@ -118,12 +118,12 @@ export function getProxyServiceListenEndpoints(
     const endpoints: ProxyServiceListenEndpoint[] = []
 
     if (service.serviceType === ProxyServiceType.端口转发) {
-        if (service.tcpForwardEnabled) endpoints.push({ port: service.httpPort, protocol: "tcp" })
-        if (service.udpForwardEnabled) endpoints.push({ port: service.httpPort, protocol: "udp" })
+        if (service.tcpForwardEnabled && service.httpPort > 0) endpoints.push({ port: service.httpPort, protocol: "tcp" })
+        if (service.udpForwardEnabled && service.httpPort > 0) endpoints.push({ port: service.httpPort, protocol: "udp" })
         return endpoints
     }
 
-    endpoints.push({ port: service.httpPort, protocol: "tcp" })
+    if (service.httpPort > 0) endpoints.push({ port: service.httpPort, protocol: "tcp" })
     if (service.httpsEnabled) endpoints.push({ port: service.httpsPort, protocol: "tcp" })
 
     return endpoints

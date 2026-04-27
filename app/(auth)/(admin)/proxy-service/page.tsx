@@ -22,14 +22,20 @@ import { ProxyService } from "@/prisma/generated/client"
 import { getParser } from "@/schemas"
 import { pageNumParser } from "@/schemas/pageNum"
 import { pageSizeParser } from "@/schemas/pageSize"
+import { getProxyServiceLocations, ProxyServiceLocationParams } from "@/schemas/proxyServiceLocation"
 import { ProxyServiceSortByParams, proxyServiceSortBySchema } from "@/schemas/proxyServiceSortBy"
 import { ProxyServiceType, proxyServiceTypeSchema } from "@/schemas/proxyServiceType"
 import { SortOrderParams, sortOrderSchema } from "@/schemas/sortOrder"
 
 import { getSortOrder } from "@/utils/getSortOrder"
 import { formatProxyServiceUpstreamUrl } from "@/utils/proxyServiceAddress"
+import { formatProxyServiceTargetPath } from "@/utils/proxyServicePath"
 
 const queryBooleanSchema = z.union([z.boolean(), z.stringbool()])
+
+function formatProxyServiceLocationTarget(location: ProxyServiceLocationParams) {
+    return `${location.targetProtocol}://${formatProxyServiceUpstreamUrl({ address: location.targetHost, port: location.targetPort })}${formatProxyServiceTargetPath(location.targetPath)}`
+}
 
 const Page: FC = () => {
     const [query, setQuery] = transformState(
@@ -129,7 +135,7 @@ const Page: FC = () => {
                     <div className="flex flex-col items-center">
                         <span>{value}</span>
                         <span className="text-xs text-slate-500">
-                            HTTP {record.httpPort}
+                            {record.httpPort > 0 ? `HTTP ${record.httpPort}` : "HTTP 未监听"}
                             {record.httpsEnabled ? ` / HTTPS ${record.httpsPort}` : ""}
                         </span>
                     </div>
@@ -144,7 +150,20 @@ const Page: FC = () => {
             sortOrder: getSortOrder(query, "targetHost"),
             render(value, record) {
                 if (record.serviceType === ProxyServiceType.端口转发) return formatProxyServiceUpstreamUrl({ address: value, port: record.targetPort })
-                return `${record.targetProtocol}://${formatProxyServiceUpstreamUrl({ address: value, port: record.targetPort })}`
+
+                const locations = getProxyServiceLocations(record.locations)
+                const location = locations[0]
+
+                if (!location) return "未配置路径规则"
+
+                return (
+                    <div className="flex flex-col items-center">
+                        <span>
+                            {location.locationPath} =&gt; {formatProxyServiceLocationTarget(location)}
+                        </span>
+                        {locations.length > 1 && <span className="text-xs text-slate-500">共 {locations.length} 条路径规则</span>}
+                    </div>
+                )
             },
         },
         {

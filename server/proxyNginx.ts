@@ -7,9 +7,11 @@ import { prisma } from "@/prisma"
 
 import { ProxyService } from "@/prisma/generated/client"
 
+import { getProxyServiceLocations, ProxyServiceLocationParams } from "@/schemas/proxyServiceLocation"
 import { ProxyServiceType } from "@/schemas/proxyServiceType"
 
 import { formatProxyServiceRedirectHost, formatProxyServiceUpstreamUrl, getProxyServiceAddressType, ProxyServiceAddressType } from "@/utils/proxyServiceAddress"
+import { formatProxyServiceTargetPath } from "@/utils/proxyServicePath"
 
 import { withFileLock } from "./autoBackupFileLock"
 import { getProxyNginxConfig, ProxyNginxConfig } from "./proxyNginxConfig"
@@ -32,6 +34,11 @@ export interface RenderProxyServerBlockParams {
 }
 
 export interface RenderProxyLocationParams {
+    service: ProxyService
+    location: ProxyServiceLocationParams
+}
+
+export interface RenderProxyLocationsParams {
     service: ProxyService
 }
 
@@ -311,9 +318,13 @@ export function renderProxyServiceConfig({ service }: RenderProxyServiceConfigPa
 
     const blocks = service.httpsEnabled
         ? [
-              service.http2HttpsEnabled ? renderRedirectServerBlock({ service }) : renderProxyServerBlock({ service, listenPort: service.httpPort }),
+              service.httpPort > 0
+                  ? service.http2HttpsEnabled
+                      ? renderRedirectServerBlock({ service })
+                      : renderProxyServerBlock({ service, listenPort: service.httpPort })
+                  : undefined,
               renderProxyServerBlock({ service, listenPort: service.httpsPort, sslEnabled: true }),
-          ]
+          ].filter(Boolean)
         : [renderProxyServerBlock({ service, listenPort: service.httpPort })]
 
     return `${blocks.join("\n\n")}\n`
@@ -362,7 +373,7 @@ export function renderProxyServerBlock({ service, listenPort, sslEnabled = false
         renderListenDirectives({ port: listenPort, sslEnabled }),
         `    server_name ${getProxyServiceServerNames(service.sourceAddress).map(quoteNginxValue).join(" ")};`,
         ...sslDirectives,
-        renderProxyLocation({ service }),
+        renderProxyLocations({ service }),
         "}",
     ]
         .filter(Boolean)
@@ -385,14 +396,21 @@ export function renderRedirectServerBlock({ service }: RenderRedirectServerBlock
     ].join("\n")
 }
 
-export function renderProxyLocation({ service }: RenderProxyLocationParams) {
-    const upstream = `${service.targetProtocol}://${formatProxyServiceUpstreamUrl({ address: service.targetHost, port: service.targetPort })}`
+export function renderProxyLocations({ service }: RenderProxyLocationsParams) {
+    const locations = getProxyServiceLocations(service.locations)
+    if (locations.length <= 0) throw new Error("反向代理必须至少配置一条路径规则")
+
+    return locations.map(location => renderProxyLocation({ service, location })).join("\n")
+}
+
+export function renderProxyLocation({ service, location }: RenderProxyLocationParams) {
+    const upstream = `${location.targetProtocol}://${formatProxyServiceUpstreamUrl({ address: location.targetHost, port: location.targetPort })}${formatProxyServiceTargetPath(location.targetPath)}`
     const websocketDirectives = service.websocketEnabled
         ? ["        proxy_http_version 1.1;", "        proxy_set_header Upgrade $http_upgrade;", "        proxy_set_header Connection $connection_upgrade;"]
         : []
 
     return [
-        "    location / {",
+        `    location ${location.locationPath} {`,
         `        proxy_pass ${upstream};`,
         "        proxy_set_header Host $host;",
         "        proxy_set_header X-Real-IP $remote_addr;",
