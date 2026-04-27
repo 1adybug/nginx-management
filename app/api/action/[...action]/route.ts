@@ -14,6 +14,7 @@ import { login } from "@/shared/login"
 import { queryErrorLog } from "@/shared/queryErrorLog"
 import { queryOperationLog } from "@/shared/queryOperationLog"
 import { queryProxyService } from "@/shared/queryProxyService"
+import { querySystemSettings } from "@/shared/querySystemSettings"
 import { queryUser } from "@/shared/queryUser"
 import { regenerateProxyServiceCertificate } from "@/shared/regenerateProxyServiceCertificate"
 import { sendCurrentUserPhoneNumberOtp } from "@/shared/sendCurrentUserPhoneNumberOtp"
@@ -21,6 +22,7 @@ import { sendPhoneNumberOtp } from "@/shared/sendPhoneNumberOtp"
 import { unbanUser } from "@/shared/unbanUser"
 import { updateCurrentUserProfile } from "@/shared/updateCurrentUserProfile"
 import { updateProxyService } from "@/shared/updateProxyService"
+import { updateSystemSettings } from "@/shared/updateSystemSettings"
 import { updateUser } from "@/shared/updateUser"
 
 const routeMap = new Map<string, RouteHandler>()
@@ -46,6 +48,7 @@ registerRoute(login)
 registerRoute(queryErrorLog)
 registerRoute(queryOperationLog)
 registerRoute(queryProxyService)
+registerRoute(querySystemSettings)
 registerRoute(queryUser)
 registerRoute(regenerateProxyServiceCertificate)
 registerRoute(sendCurrentUserPhoneNumberOtp)
@@ -53,6 +56,7 @@ registerRoute(sendPhoneNumberOtp)
 registerRoute(unbanUser)
 registerRoute(updateCurrentUserProfile)
 registerRoute(updateProxyService)
+registerRoute(updateSystemSettings)
 registerRoute(updateUser)
 
 export function POST(request: NextRequest) {

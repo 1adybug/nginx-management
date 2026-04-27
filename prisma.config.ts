@@ -1,6 +1,8 @@
 import { defineConfig } from "prisma/config"
 
-export const DatabaseUrl = process.env.NODE_ENV === "development" ? "file:./data/development.db" : "file:./data/production.db"
+import { DatabaseUrl } from "./server/databaseUrl"
+
+export { DatabaseUrl } from "./server/databaseUrl"
 
 export default defineConfig({
     schema: "prisma/schema.prisma",

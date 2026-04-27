@@ -55,6 +55,7 @@ COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/prisma.config.ts ./prisma.config.ts
+COPY --from=builder /app/server/databaseUrl.ts ./server/databaseUrl.ts
 COPY --from=deps /app/node_modules/prisma/package.json ./prisma-package.json
 RUN mkdir -p /app/data && chown -R nextjs:nodejs /app/data
 RUN setcap "cap_net_bind_service=+ep" /usr/sbin/nginx
@@ -108,13 +109,6 @@ RUN printf '%s\n' \
     'chmod -R u+rwX,g+rwX /app/data' \
     'touch /app/data/production.db' \
     'prisma migrate deploy' \
-    'case "${NGINX_PROXY_APPLY_ENABLED:-1}" in' \
-    '    0|false|FALSE|off|OFF|no|NO)' \
-    '        ;;' \
-    '    *)' \
-    '        gosu nextjs nginx -c /app/data/nginx/nginx.conf' \
-    '        ;;' \
-    'esac' \
     'exec gosu nextjs node server.js' \
     > /app/entrypoint.sh && chmod +x /app/entrypoint.sh
 

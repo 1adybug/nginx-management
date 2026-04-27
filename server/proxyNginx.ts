@@ -97,6 +97,10 @@ export interface StartOrReloadProxyNginxParams {
     config: ProxyNginxConfig
 }
 
+export interface StopProxyNginxParams {
+    config: ProxyNginxConfig
+}
+
 export interface TestProxyNginxConfigParams {
     config: ProxyNginxConfig
     nginxConfigPath: string
@@ -167,6 +171,17 @@ export async function applyProxyServices() {
     })
 
     if (!result) throw new Error("代理服务正在生效中，请稍后再试")
+}
+
+export async function syncProxyNginxRuntime() {
+    const config = getProxyNginxConfig()
+
+    if (!config.applyEnabled) {
+        await stopProxyNginx({ config })
+        return
+    }
+
+    await applyProxyServices()
 }
 
 export async function ensureProxyNginxDirectories(config: ProxyNginxConfig) {
@@ -517,6 +532,28 @@ export async function startOrReloadProxyNginx({ config }: StartOrReloadProxyNgin
     }
 }
 
+export async function stopProxyNginx({ config }: StopProxyNginxParams) {
+    const commands = Array.from(new Set([config.nginxCommand, "nginx"]))
+
+    for (const command of commands) {
+        try {
+            await execProxyCommand({
+                command,
+                args: ["-s", "quit", "-c", config.nginxConfigPath],
+            })
+
+            return
+        } catch (error) {
+            const message = error instanceof Error ? error.message : String(error)
+
+            if (isProxyCommandNotFoundError(message) && command !== "nginx") continue
+            if (isProxyNginxStoppedError(message)) return
+
+            throw error
+        }
+    }
+}
+
 export async function execProxyCommand({ command, args }: ExecProxyCommandParams) {
     try {
         await execFileAsync(command, args)
@@ -529,6 +566,19 @@ export function getProxyCommandErrorMessage(error: unknown) {
     if (error instanceof Error && "stderr" in error && typeof error.stderr === "string" && error.stderr.trim()) return error.stderr.trim()
     if (error instanceof Error && "stdout" in error && typeof error.stdout === "string" && error.stdout.trim()) return error.stdout.trim()
     return error instanceof Error ? error.message : String(error)
+}
+
+export function isProxyCommandNotFoundError(message: string) {
+    const lowerCaseMessage = message.toLowerCase()
+    return lowerCaseMessage.includes("enoent") || lowerCaseMessage.includes("not found") || lowerCaseMessage.includes("not recognized")
+}
+
+export function isProxyNginxStoppedError(message: string) {
+    return (
+        (message.includes("nginx.pid") && message.includes("No such file or directory")) ||
+        (message.includes("nginx.conf") && message.includes("No such file or directory")) ||
+        message.includes("invalid PID number")
+    )
 }
 
 export function toNginxPath(filePath: string) {
