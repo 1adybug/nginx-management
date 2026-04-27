@@ -13,7 +13,7 @@
 
 ## 环境变量
 
-项目将启动、构建、认证核心配置，以及首次登录前就必须可用的默认邮箱域名和短信通道配置放在 `.env` 或部署平台环境变量中。
+项目将启动、构建、认证核心配置，以及首次登录前就必须可用的默认邮箱域名和短信通道配置放在 `.env` 或部署平台环境变量中。验证码日志打印、限流、用户资料开关、自动备份和 Nginx 运行控制等配置请登录后台后在“系统设置”页面维护。
 
 说明：
 
@@ -21,6 +21,7 @@
 - `NODE_ENV` 由运行命令和框架控制，一般不需要手动设置
 - `BETTER_AUTH_SECRET` 在生产环境是强制项，未配置会导致服务启动失败；开发环境会使用仅本地可用的兜底值
 - 默认邮箱域名、短信通道和密钥不会进入系统设置，避免首次进入系统时因无法登录而无法配置基础能力
+- 系统设置中的“短信设置”只控制是否在服务端系统日志中打印验证码
 - 系统设置中的配置不读取同名环境变量，首次初始化时只写入代码默认值
 
 ### 变量清单
@@ -98,8 +99,8 @@ ALIYUN_ACCESS_KEY_SECRET=""
 
 说明：
 
-- 密钥类设置只在服务端使用，页面不会回显明文
-- 密钥输入框留空后保存，表示保持原值不变
+- 系统设置中的密钥类字段只在服务端使用，页面不会回显明文
+- 密钥输入框留空保存表示保持原值不变，输入新值才会覆盖
 - 开发环境下，“启用全局限流”和“自动应用 Nginx 配置”的默认值为关闭
 - 关闭“自动应用 Nginx 配置”后，应用会立即尝试停止当前 Nginx 进程
 
@@ -280,6 +281,10 @@ login.rateLimit = createRateLimit({
 
 `{prefix}:{action}:{userId 或 ip 或 anonymous}`
 
+### 函数级配置
+
+当你需要按账号、手机号等字段精细限流时，可以提供 `getKey`；如果某个函数不需要限流，也可以显式设为 `false` 或 `{ enabled: false }`。
+
 ### 全局开关
 
 通过“系统设置 / 限流设置 / 启用全局限流”控制全局是否启用限流。
@@ -296,6 +301,19 @@ setGlobalRateLimitEnabled(false)
 
 const enabled = await isGlobalRateLimitEnabled()
 console.log(enabled)
+```
+
+### 全局策略配置
+
+```ts
+import { setGlobalRateLimitOptions } from "@/server/createRateLimit"
+
+setGlobalRateLimitOptions({
+    limit: 200,
+    windowMs: 120_000,
+    prefix: "my-action",
+    message: "请求太频繁，请稍后重试",
+})
 ```
 
 ### 存储解耦

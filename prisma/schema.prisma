@@ -80,7 +80,6 @@ model ProxyService {
     @@index([sourceAddress])
     @@index([targetHost])
 }
-
 enum Role {
     admin
     user
