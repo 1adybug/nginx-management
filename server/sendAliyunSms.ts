@@ -1,13 +1,10 @@
-import Credential from "@alicloud/credentials"
 import Dysmsapi, { SendSmsRequest } from "@alicloud/dysmsapi20170525"
 import { Config } from "@alicloud/openapi-client"
 import { RuntimeOptions } from "@alicloud/tea-util"
 
-import { SystemSettingKey } from "@/constants/systemSettings"
-
 import { phoneNumberRegex } from "@/schemas/phoneNumber"
 
-import { getSystemSettingValueMap } from "./systemSettings"
+import { getSmsConfig } from "./smsConfig"
 
 export interface SendAliyunSmsParams {
     phone: string | string[]
@@ -24,12 +21,15 @@ export async function sendAliyunSms({ phone, signName, templateCode, params }: S
     const invalidPhones = phone.filter(p => !phoneNumberRegex.test(p))
     if (invalidPhones.length > 0) throw new Error(`invalid phone${invalidPhones.length > 1 ? "s" : ""}: ${invalidPhones.join(",")}`)
     phone = phone.join(",")
-    const settings = await getSystemSettingValueMap()
-    const credential = new Credential()
-    const config = new Config({ credential })
-    config.accessKeyId = settings[SystemSettingKey.阿里云短信密钥ID]
-    config.accessKeySecret = settings[SystemSettingKey.阿里云短信密钥Secret]
-    config.endpoint = `dysmsapi.aliyuncs.com`
+    const { aliyunAccessKeyId, aliyunAccessKeySecret } = getSmsConfig()
+    if (!aliyunAccessKeyId || !aliyunAccessKeySecret) throw new Error("缺少阿里云短信配置")
+
+    const config = new Config({
+        accessKeyId: aliyunAccessKeyId,
+        accessKeySecret: aliyunAccessKeySecret,
+        endpoint: "dysmsapi.aliyuncs.com",
+    })
+
     const client = new Dysmsapi(config)
 
     const sendSmsRequest = new SendSmsRequest({

@@ -13,7 +13,6 @@ export type SystemSettingValueKind = (typeof SystemSettingValueKind)[keyof typeo
 
 export const SystemSettingGroupKey = {
     基础设置: "base",
-    短信设置: "sms",
     限流设置: "rate-limit",
     自动备份: "auto-backup",
 } as const
@@ -22,10 +21,6 @@ export type SystemSettingGroupKey = (typeof SystemSettingGroupKey)[keyof typeof 
 
 export const SystemSettingKey = {
     默认邮箱域名: "DEFAULT_EMAIL_DOMAIN",
-    内网短信: "IS_INTRANET",
-    阿里云短信密钥ID: "ALIYUN_ACCESS_KEY_ID",
-    阿里云短信密钥Secret: "ALIYUN_ACCESS_KEY_SECRET",
-    内网短信地址: "QJP_SMS_URL",
     全局限流: "RATE_LIMIT_ENABLED",
     允许修改昵称: "ALLOW_CURRENT_USER_UPDATE_NICKNAME",
     允许修改手机号: "ALLOW_CURRENT_USER_UPDATE_PHONE_NUMBER",
@@ -92,11 +87,6 @@ export const SystemSettingGroups: SystemSettingGroupDefinition[] = [
         description: "管理注册邮箱域名和用户自助修改能力。",
     },
     {
-        key: SystemSettingGroupKey.短信设置,
-        label: "短信设置",
-        description: "配置公网阿里云短信或内网短信通道。",
-    },
-    {
         key: SystemSettingGroupKey.限流设置,
         label: "限流设置",
         description: "控制服务端动作的全局限流开关。",
@@ -134,39 +124,6 @@ export const SystemSettingDefinitions: SystemSettingDefinition[] = [
         label: "允许用户修改手机号",
         description: "关闭后，个人中心不再显示手机号编辑入口。",
         defaultValue: "1",
-    },
-    {
-        key: SystemSettingKey.内网短信,
-        group: SystemSettingGroupKey.短信设置,
-        kind: SystemSettingValueKind.布尔,
-        label: "使用内网短信",
-        description: "开启后验证码通过内网短信接口发送，关闭后使用阿里云短信。",
-        defaultValue: "0",
-    },
-    {
-        key: SystemSettingKey.内网短信地址,
-        group: SystemSettingGroupKey.短信设置,
-        kind: SystemSettingValueKind.地址,
-        label: "内网短信地址",
-        description: "内网短信服务的 HTTP 地址，仅启用内网短信时需要。",
-        defaultValue: "",
-        placeholder: "http://sms.example.com/send",
-    },
-    {
-        key: SystemSettingKey.阿里云短信密钥ID,
-        group: SystemSettingGroupKey.短信设置,
-        kind: SystemSettingValueKind.密钥,
-        label: "阿里云 AccessKey ID",
-        description: "公网短信通道使用的阿里云访问密钥 ID。",
-        defaultValue: "",
-    },
-    {
-        key: SystemSettingKey.阿里云短信密钥Secret,
-        group: SystemSettingGroupKey.短信设置,
-        kind: SystemSettingValueKind.密钥,
-        label: "阿里云 AccessKey Secret",
-        description: "公网短信通道使用的阿里云访问密钥 Secret。",
-        defaultValue: "",
     },
     {
         key: SystemSettingKey.全局限流,

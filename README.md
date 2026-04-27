@@ -13,13 +13,14 @@ git remote set-url --push template no_push://template
 
 ## env 文件
 
-项目只将启动、构建、认证核心配置放在 `.env` 或部署平台环境变量中。短信、限流、用户资料开关、自动备份等运行时配置请登录后台后在“系统设置”页面维护。
+项目将启动、构建、认证核心配置，以及首次登录前就必须可用的短信配置放在 `.env` 或部署平台环境变量中。限流、用户资料开关、自动备份等运行时配置请登录后台后在“系统设置”页面维护。
 
 说明：
 
 - 以 `NEXT_PUBLIC_` 开头的变量会暴露给浏览器，本项目当前无需配置这类变量
 - `NODE_ENV` 由运行命令和框架控制，一般不需要手动设置
 - `BETTER_AUTH_SECRET` 在生产环境是强制项，未配置会导致服务启动失败；开发环境会使用仅本地可用的兜底值
+- 短信配置不会进入系统设置，避免首次进入系统时因无法登录而无法配置短信
 - 系统设置中的配置不读取同名环境变量，首次初始化时只写入代码默认值
 
 ### 变量清单
@@ -33,6 +34,10 @@ git remote set-url --push template no_push://template
 | `NEXT_OUTPUT`                 | 否   | Next 构建输出模式                       | `standalone` / `export`   |
 | `NEXT_TELEMETRY_DISABLED`     | 否   | 是否关闭 Next 遥测上报                  | `1`                       |
 | `REDIS_URL`                   | 按需 | Redis 地址（仅接入 Redis 限流存储时用） | `redis://127.0.0.1:6379`  |
+| `IS_INTRANET`                 | 否   | 是否使用内网短信通道                    | `0`                       |
+| `QJP_SMS_URL`                 | 按需 | 内网短信服务地址                        | `http://sms.example.com`  |
+| `ALIYUN_ACCESS_KEY_ID`        | 按需 | 阿里云短信 AccessKey ID                 | `your_access_key_id`      |
+| `ALIYUN_ACCESS_KEY_SECRET`    | 按需 | 阿里云短信 AccessKey Secret             | `your_access_key_secret`  |
 
 ### 推荐的本地 `.env` 示例
 
@@ -52,6 +57,12 @@ NEXT_TELEMETRY_DISABLED="1"
 
 # 可选：仅在你启用 Redis 限流存储时使用
 REDIS_URL="redis://127.0.0.1:6379"
+
+# 短信配置
+IS_INTRANET="0"
+QJP_SMS_URL=""
+ALIYUN_ACCESS_KEY_ID=""
+ALIYUN_ACCESS_KEY_SECRET=""
 ```
 
 ### Better Auth URL 解析规则
@@ -76,11 +87,10 @@ REDIS_URL="redis://127.0.0.1:6379"
 当前包含的设置：
 
 - 基础设置：默认邮箱域名、是否允许用户修改昵称、是否允许用户修改手机号
-- 短信设置：是否使用内网短信、内网短信地址、阿里云短信密钥
 - 限流设置：是否启用全局限流
 - 自动备份：备份开关、备份频率、保留数量、日志保留时长、S3 / 兼容对象存储配置
 
-密钥类设置只在服务端使用。页面不会回显明文，留空保存表示保持原值不变，输入新值才会覆盖。
+系统设置中的密钥类设置只在服务端使用。页面不会回显明文，留空保存表示保持原值不变，输入新值才会覆盖。
 
 ## 自动备份
 
