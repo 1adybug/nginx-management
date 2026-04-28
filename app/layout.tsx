@@ -10,8 +10,8 @@ import "./globals.css"
 
 export const metadata: Metadata = {
     title: {
-        default: "格数科技",
-        template: "%s · 格数科技",
+        default: "nginx",
+        template: "%s · nginx",
     },
     description: "powered by geshu",
 }
