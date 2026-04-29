@@ -38,7 +38,7 @@ FROM base AS runner
 WORKDIR /app
 
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends -o Acquire::Retries=3 gosu nginx libcap2-bin \
+    && apt-get install -y --no-install-recommends -o Acquire::Retries=3 gosu nginx libnginx-mod-stream libcap2-bin \
     && rm -rf /var/lib/apt/lists/*
 
 ENV NODE_ENV=production

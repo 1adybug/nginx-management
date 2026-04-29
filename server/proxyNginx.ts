@@ -87,10 +87,16 @@ export interface CreateNginxMainConfigParams {
     config: ProxyNginxConfig
     includeDirectoryPath: string
     streamIncludeDirectoryPath: string
+    streamEnabled?: boolean
 }
 
 export interface CreateOpenSslConfigParams {
     service: ProxyService
+}
+
+export interface EnsureNginxMainConfigParams {
+    config: ProxyNginxConfig
+    streamEnabled?: boolean
 }
 
 export interface StartOrReloadProxyNginxParams {
@@ -113,12 +119,14 @@ export async function applyProxyServices() {
 
     const result = await withFileLock({ lockFilePath: config.lockFilePath, staleMs: 60_000 }, async () => {
         await ensureProxyNginxDirectories(config)
-        await ensureNginxMainConfig(config)
 
         const services = await prisma.proxyService.findMany({
             where: { enabled: true },
             orderBy: [{ createdAt: "asc" }],
         })
+        const streamEnabled = services.some(service => service.serviceType === ProxyServiceType.端口转发)
+
+        await ensureNginxMainConfig({ config, streamEnabled })
 
         const servicesWithCertificates = await Promise.all(services.map(service => ensureProxyServiceCertificate({ service })))
 
@@ -146,6 +154,7 @@ export async function applyProxyServices() {
                     config,
                     includeDirectoryPath: tempConfDirectoryPath,
                     streamIncludeDirectoryPath: tempStreamConfDirectoryPath,
+                    streamEnabled,
                 }),
                 "utf8",
             )
@@ -197,13 +206,14 @@ export async function ensureProxyNginxDirectories(config: ProxyNginxConfig) {
     await mkdir(resolve(config.tempDirectoryPath, "scgi"), { recursive: true })
 }
 
-export async function ensureNginxMainConfig(config: ProxyNginxConfig) {
+export async function ensureNginxMainConfig({ config, streamEnabled = false }: EnsureNginxMainConfigParams) {
     await writeFile(
         config.nginxConfigPath,
         createNginxMainConfig({
             config,
             includeDirectoryPath: config.confDirectoryPath,
             streamIncludeDirectoryPath: config.streamConfDirectoryPath,
+            streamEnabled,
         }),
         "utf8",
     )
@@ -453,7 +463,15 @@ export function getProxyServiceServerNames(address: string) {
     return [address, `[${address}]`]
 }
 
-export function createNginxMainConfig({ config, includeDirectoryPath, streamIncludeDirectoryPath }: CreateNginxMainConfigParams) {
+export function createNginxMainConfig({ config, includeDirectoryPath, streamIncludeDirectoryPath, streamEnabled = false }: CreateNginxMainConfigParams) {
+    const streamBlock = streamEnabled
+        ? `
+stream {
+    include ${toNginxPath(streamIncludeDirectoryPath)}/*.conf;
+}
+`
+        : ""
+
     return `include /etc/nginx/modules-enabled/*.conf;
 pid ${toNginxPath(config.dataDirectoryPath)}/nginx.pid;
 error_log /dev/stderr warn;
@@ -481,11 +499,7 @@ http {
 
     include ${toNginxPath(includeDirectoryPath)}/*.conf;
 }
-
-stream {
-    include ${toNginxPath(streamIncludeDirectoryPath)}/*.conf;
-}
-`
+${streamBlock}`
 }
 
 export function createOpenSslConfig({ service }: CreateOpenSslConfigParams) {
