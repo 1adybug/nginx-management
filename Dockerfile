@@ -66,14 +66,14 @@ RUN npm install -g "prisma@$(node -p "require('./prisma-package.json').version")
 RUN printf '%s\n' \
     '#!/bin/sh' \
     'set -e' \
-    'mkdir -p /app/data/nginx/conf.d /app/data/nginx/stream.d /app/data/nginx/certs /app/data/nginx/tmp/client_body /app/data/nginx/tmp/proxy /app/data/nginx/tmp/fastcgi /app/data/nginx/tmp/uwsgi /app/data/nginx/tmp/scgi' \
+    'mkdir -p /app/data/nginx/conf.d /app/data/nginx/stream.d /app/data/nginx/certs /app/data/nginx/logs /app/data/nginx/tmp/client_body /app/data/nginx/tmp/proxy /app/data/nginx/tmp/fastcgi /app/data/nginx/tmp/uwsgi /app/data/nginx/tmp/scgi' \
     'chown -R nextjs:nodejs /app/data' \
     'chmod -R u+rwX,g+rwX /app/data' \
     'if [ ! -f /app/data/nginx/nginx.conf ]; then' \
     'cat > /app/data/nginx/nginx.conf <<'"'"'EOF'"'"'' \
     'include /etc/nginx/modules-enabled/*.conf;' \
     'pid /app/data/nginx/nginx.pid;' \
-    'error_log /dev/stderr warn;' \
+    'error_log /app/data/nginx/logs/error.log warn;' \
     '' \
     'events {' \
     '    worker_connections 1024;' \
@@ -82,7 +82,7 @@ RUN printf '%s\n' \
     'http {' \
     '    include /etc/nginx/mime.types;' \
     '    default_type application/octet-stream;' \
-    '    access_log /dev/stdout;' \
+    '    access_log /app/data/nginx/logs/access.log;' \
     '    sendfile on;' \
     '    keepalive_timeout 65;' \
     '    client_body_temp_path /app/data/nginx/tmp/client_body;' \

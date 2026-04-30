@@ -198,6 +198,7 @@ export async function ensureProxyNginxDirectories(config: ProxyNginxConfig) {
     await mkdir(config.confDirectoryPath, { recursive: true })
     await mkdir(config.streamConfDirectoryPath, { recursive: true })
     await mkdir(config.certDirectoryPath, { recursive: true })
+    await mkdir(config.logDirectoryPath, { recursive: true })
     await mkdir(config.tempDirectoryPath, { recursive: true })
     await mkdir(resolve(config.tempDirectoryPath, "client_body"), { recursive: true })
     await mkdir(resolve(config.tempDirectoryPath, "proxy"), { recursive: true })
@@ -474,7 +475,7 @@ stream {
 
     return `include /etc/nginx/modules-enabled/*.conf;
 pid ${toNginxPath(config.dataDirectoryPath)}/nginx.pid;
-error_log /dev/stderr warn;
+error_log ${toNginxPath(config.logDirectoryPath)}/error.log warn;
 
 events {
     worker_connections 1024;
@@ -483,7 +484,7 @@ events {
 http {
     include /etc/nginx/mime.types;
     default_type application/octet-stream;
-    access_log /dev/stdout;
+    access_log ${toNginxPath(config.logDirectoryPath)}/access.log;
     sendfile on;
     keepalive_timeout 65;
     client_body_temp_path ${toNginxPath(config.tempDirectoryPath)}/client_body;

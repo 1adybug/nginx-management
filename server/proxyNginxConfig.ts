@@ -11,6 +11,7 @@ export interface ProxyNginxConfig {
     confDirectoryPath: string
     streamConfDirectoryPath: string
     certDirectoryPath: string
+    logDirectoryPath: string
     tempDirectoryPath: string
     nginxConfigPath: string
     lockFilePath: string
@@ -26,6 +27,7 @@ export function getProxyNginxConfig() {
         confDirectoryPath: resolve(dataDirectoryPath, "conf.d"),
         streamConfDirectoryPath: resolve(dataDirectoryPath, "stream.d"),
         certDirectoryPath: resolve(dataDirectoryPath, "certs"),
+        logDirectoryPath: resolve(dataDirectoryPath, "logs"),
         tempDirectoryPath: resolve(dataDirectoryPath, "tmp"),
         nginxConfigPath: resolve(dataDirectoryPath, "nginx.conf"),
         lockFilePath: resolve(dataDirectoryPath, "proxy-service.lock"),
