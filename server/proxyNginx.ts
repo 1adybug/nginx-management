@@ -172,6 +172,8 @@ export async function applyProxyServices() {
 
             await testProxyNginxConfig({ config, nginxConfigPath: config.nginxConfigPath })
             await startOrReloadProxyNginx({ config })
+
+            return true
         } finally {
             await rm(tempConfDirectoryPath, { force: true, recursive: true })
             await rm(tempStreamConfDirectoryPath, { force: true, recursive: true })
