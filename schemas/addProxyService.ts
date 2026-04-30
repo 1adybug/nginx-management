@@ -17,6 +17,16 @@ export const optionalProxyServiceAddressSchema = z.preprocess(input => {
     return input
 }, proxyServiceAddressSchema.optional())
 
+export const optionalProxyServiceRemarkSchema = z.preprocess(
+    input => {
+        if (typeof input === "undefined") return undefined
+        if (input === null) return undefined
+        if (typeof input === "string" && !input.trim()) return undefined
+        return input
+    },
+    z.string({ message: "无效的备注" }).trim().max(500, { message: "备注不能超过 500 个字符" }).optional(),
+)
+
 export const proxyServiceInputSchema = z.object(
     {
         serviceType: proxyServiceTypeSchema.catch(ProxyServiceType.反向代理),
@@ -34,7 +44,7 @@ export const proxyServiceInputSchema = z.object(
         httpsEnabled: z.boolean({ message: "无效的 HTTPS 开关" }).catch(false),
         http2HttpsEnabled: z.boolean({ message: "无效的 HTTP 跳转 HTTPS 开关" }).catch(false),
         certificateDays: proxyServiceCertificateDaysSchema,
-        remark: z.string({ message: "无效的备注" }).trim().max(500, { message: "备注不能超过 500 个字符" }).optional(),
+        remark: optionalProxyServiceRemarkSchema,
     },
     { message: "无效的代理服务参数" },
 )

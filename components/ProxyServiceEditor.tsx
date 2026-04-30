@@ -68,6 +68,7 @@ export function getProxyServiceFormValues(data: ProxyService) {
     const values = {
         ...data,
         locations: getProxyServiceLocations(data.locations),
+        remark: data.remark || undefined,
     } as AddProxyServiceParams
 
     return values
