@@ -1,6 +1,6 @@
 "use client"
 
-import { FC, useRef, useState } from "react"
+import { FC, Fragment, useRef, useState } from "react"
 
 import { Button, DatePicker, Form, Input, Modal, ModalProps, Popconfirm, Select, Table, TableProps, Tag } from "antd"
 import FormItem from "antd/es/form/FormItem"
@@ -13,6 +13,7 @@ import { z } from "zod/v4"
 import ProxyServiceEditor from "@/components/ProxyServiceEditor"
 
 import { useDeleteProxyService } from "@/hooks/useDeleteProxyService"
+import { useDownloadProxyServiceCertificate } from "@/hooks/useDownloadProxyServiceCertificate"
 import { useQueryProxyService } from "@/hooks/useQueryProxyService"
 import { useRegenerateProxyServiceCertificate } from "@/hooks/useRegenerateProxyServiceCertificate"
 import { useUpdateProxyService } from "@/hooks/useUpdateProxyService"
@@ -100,8 +101,14 @@ const Page: FC = () => {
     const { mutateAsync: deleteProxyServiceAsync, isPending: isDeleteProxyServicePending } = useDeleteProxyService()
     const { mutateAsync: regenerateProxyServiceCertificateAsync, isPending: isRegenerateProxyServiceCertificatePending } =
         useRegenerateProxyServiceCertificate()
+    const { mutateAsync: downloadProxyServiceCertificateAsync, isPending: isDownloadProxyServiceCertificatePending } = useDownloadProxyServiceCertificate()
 
-    const isRequesting = isLoading || isUpdateProxyServicePending || isDeleteProxyServicePending || isRegenerateProxyServiceCertificatePending
+    const isRequesting =
+        isLoading ||
+        isUpdateProxyServicePending ||
+        isDeleteProxyServicePending ||
+        isRegenerateProxyServiceCertificatePending ||
+        isDownloadProxyServiceCertificatePending
 
     const columns: Columns<ProxyService> = [
         {
@@ -280,11 +287,16 @@ const Page: FC = () => {
                             {record.enabled ? "停用" : "启用"}
                         </Button>
                         {record.httpsEnabled && (
-                            <Popconfirm title="确认重新生成自签证书" onConfirm={() => regenerateProxyServiceCertificateAsync(value)}>
-                                <Button size="small" color="purple" variant="text" disabled={isRequesting}>
-                                    证书
+                            <Fragment>
+                                <Button size="small" color="primary" variant="text" disabled={isRequesting} onClick={() => onDownloadCertificate(value)}>
+                                    下载
                                 </Button>
-                            </Popconfirm>
+                                <Popconfirm title="确认重新生成自签证书" onConfirm={() => regenerateProxyServiceCertificateAsync(value)}>
+                                    <Button size="small" color="purple" variant="text" disabled={isRequesting}>
+                                        重签
+                                    </Button>
+                                </Popconfirm>
+                            </Fragment>
                         )}
                         <Popconfirm
                             title="确认删除代理服务"
@@ -317,6 +329,21 @@ const Page: FC = () => {
             id: record.id,
             enabled: !record.enabled,
         })
+    }
+
+    async function onDownloadCertificate(id: string) {
+        const certificate = await downloadProxyServiceCertificateAsync(id)
+        const blob = new Blob([certificate.content], { type: "application/x-pem-file" })
+        const url = URL.createObjectURL(blob)
+        const link = document.createElement("a")
+
+        link.href = url
+        link.download = certificate.filename
+        document.body.append(link)
+        link.click()
+        link.remove()
+
+        window.setTimeout(() => URL.revokeObjectURL(url), 0)
     }
 
     function onClose() {
