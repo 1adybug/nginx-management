@@ -108,6 +108,8 @@ RUN printf '%s\n' \
     'chmod -R u+rwX,g+rwX /app/data' \
     'touch /app/data/production.db' \
     'prisma migrate deploy' \
+    'chown -R nextjs:nodejs /app/data' \
+    'chmod -R u+rwX,g+rwX /app/data' \
     'exec gosu nextjs node server.js' \
     > /app/entrypoint.sh && chmod +x /app/entrypoint.sh
 
