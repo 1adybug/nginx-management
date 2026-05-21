@@ -246,7 +246,7 @@ export const ReverseProxyDetailForm: FC = () => {
                                             onClick={() => remove(field.name)}
                                         />
                                     </div>
-                                    <div className="grid grid-cols-1 gap-2 md:grid-cols-[minmax(200px,1fr)_160px]">
+                                    <div className="grid grid-cols-1 gap-2 md:grid-cols-[minmax(200px,1fr)_208px]">
                                         <FormItem name={[field.name, "locationPath"]} label="Location" rules={[schemaToRule(proxyServiceLocationPathSchema)]}>
                                             <Input autoComplete="off" allowClear placeholder="/path" />
                                         </FormItem>
