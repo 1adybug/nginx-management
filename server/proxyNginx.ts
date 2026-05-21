@@ -94,11 +94,6 @@ export interface CreateOpenSslConfigParams {
     service: ProxyService
 }
 
-export interface GetProxyServiceCertificateAddressParams {
-    sourceAddress?: string
-    targetHost?: string
-}
-
 export interface EnsureNginxMainConfigParams {
     config: ProxyNginxConfig
     streamEnabled?: boolean
@@ -385,9 +380,8 @@ export function renderPortForwardServerBlock({ service, protocol }: RenderPortFo
     return [
         "server {",
         renderPortForwardListenDirectives({ port: service.httpPort, protocol, sslEnabled }),
-        ...sslDirectives,
         `    proxy_pass ${formatProxyServiceUpstreamUrl({ address: service.targetHost, port: service.targetPort })};`,
-        "    proxy_timeout 1h;",
+        ...sslDirectives,
         "}",
     ].join("\n")
 }
@@ -512,7 +506,7 @@ ${streamBlock}`
 }
 
 export function createOpenSslConfig({ service }: CreateOpenSslConfigParams) {
-    const address = getProxyServiceCertificateAddress(service)
+    const address = service.sourceAddress || service.targetHost || "localhost"
     const addressType = getProxyServiceAddressType(address)
     const altNameKey = addressType === ProxyServiceAddressType.域名 ? "DNS.1" : "IP.1"
 
@@ -525,17 +519,13 @@ prompt = no
 CN = ${escapeOpenSslValue(address)}
 
 [v3_req]
-keyUsage = digitalSignature, keyEncipherment
+keyUsage = keyEncipherment, dataEncipherment
 extendedKeyUsage = serverAuth
 subjectAltName = @alt_names
 
 [alt_names]
 ${altNameKey} = ${escapeOpenSslValue(address)}
 `
-}
-
-export function getProxyServiceCertificateAddress({ sourceAddress, targetHost }: GetProxyServiceCertificateAddressParams) {
-    return sourceAddress || targetHost || "localhost"
 }
 
 export async function testProxyNginxConfig({ config, nginxConfigPath }: TestProxyNginxConfigParams) {

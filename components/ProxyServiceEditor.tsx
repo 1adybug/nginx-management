@@ -13,7 +13,7 @@ import { useUpdateProxyService } from "@/hooks/useUpdateProxyService"
 
 import { ProxyService } from "@/prisma/generated/client"
 
-import { AddProxyServiceParams, defaultProxyServiceHttpPort, defaultProxyServiceHttpsPort, optionalProxyServiceAddressSchema } from "@/schemas/addProxyService"
+import { AddProxyServiceParams, defaultProxyServiceHttpPort, defaultProxyServiceHttpsPort } from "@/schemas/addProxyService"
 import { proxyServiceAddressSchema } from "@/schemas/proxyServiceAddress"
 import { defaultProxyServiceCertificateDays } from "@/schemas/proxyServiceCertificateDays"
 import { getProxyServiceLocations, ProxyServiceLocationParams } from "@/schemas/proxyServiceLocation"
@@ -269,9 +269,6 @@ export const PortForwardDetailForm: FC = () => (
     <div>
         <FormItem<AddProxyServiceParams> name="httpPort" label="入站端口" rules={[schemaToRule(proxyServicePortSchema)]}>
             <InputNumber className="w-full" min={1} max={65535} placeholder="eg: 8080" />
-        </FormItem>
-        <FormItem<AddProxyServiceParams> name="sourceAddress" label="访问地址" rules={[schemaToRule(optionalProxyServiceAddressSchema)]}>
-            <Input autoComplete="off" allowClear placeholder="用于生成 SSL 证书，例如 example.com / 192.168.1.10" />
         </FormItem>
         <div className="grid grid-cols-[1fr_194px] gap-2">
             <FormItem<AddProxyServiceParams> name="targetHost" label="转发主机" rules={[schemaToRule(proxyServiceAddressSchema)]}>
