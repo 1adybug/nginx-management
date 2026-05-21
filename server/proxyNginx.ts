@@ -508,10 +508,10 @@ export function renderDynamicProxyLocation({ service, location }: RenderDynamicP
         `        set $dynamic_proxy_query_name ${quoteNginxValue(location.dynamicTargetQueryName || "url")};`,
         `        set $dynamic_proxy_allow_pattern ${quoteNginxValue(location.dynamicTargetAllowPattern || "")};`,
         "        if ($dynamic_proxy_status = 400) {",
-        "            return 400;",
+        "            return 400 $dynamic_proxy_error;",
         "        }",
         "        if ($dynamic_proxy_status = 403) {",
-        "            return 403;",
+        "            return 403 $dynamic_proxy_error;",
         "        }",
         "        proxy_pass $dynamic_proxy_target;",
         "        proxy_set_header Host $dynamic_proxy_host;",
@@ -582,6 +582,7 @@ stream {
     js_set $dynamic_proxy_target dynamic_proxy.target;
     js_set $dynamic_proxy_host dynamic_proxy.host;
     js_set $dynamic_proxy_ssl_name dynamic_proxy.sslName;
+    js_set $dynamic_proxy_error dynamic_proxy.errorMessage;
     resolver ${config.dnsResolver};
 `
         : ""
@@ -618,7 +619,34 @@ ${streamBlock}`
 }
 
 export function createDynamicProxyNjsScript() {
-    return `function getArg(r, name) {
+    return `function safeDecode(value) {
+    try {
+        return decodeURIComponent(String(value).replace(/\\+/g, " "));
+    } catch (error) {
+        return String(value);
+    }
+}
+
+function getArgFromRawQuery(r, name) {
+    var rawQuery = r.variables.args || "";
+    var parts = String(rawQuery).split("&");
+
+    for (var i = 0; i < parts.length; i++) {
+        var part = parts[i];
+        var index = part.indexOf("=");
+        var rawName = index >= 0 ? part.slice(0, index) : part;
+
+        if (safeDecode(rawName) !== name) {
+            continue;
+        }
+
+        return safeDecode(index >= 0 ? part.slice(index + 1) : "");
+    }
+
+    return undefined;
+}
+
+function getArg(r, name) {
     var args = r.args || {};
     var value = args[name];
 
@@ -626,17 +654,94 @@ export function createDynamicProxyNjsScript() {
         return value[0];
     }
 
-    return value;
+    if (value !== undefined) {
+        return value;
+    }
+
+    return getArgFromRawQuery(r, name);
 }
 
-function getSslName(url) {
-    var hostname = url.hostname || "";
+function getSslNameFromHost(host) {
+    var hostname = host || "";
 
-    if (hostname.charAt(0) === "[" && hostname.charAt(hostname.length - 1) === "]") {
-        return hostname.slice(1, -1);
+    if (hostname.charAt(0) === "[") {
+        var bracketIndex = hostname.indexOf("]");
+
+        if (bracketIndex >= 0) {
+            return hostname.slice(1, bracketIndex);
+        }
+    }
+
+    var portIndex = hostname.indexOf(":");
+
+    if (portIndex >= 0) {
+        return hostname.slice(0, portIndex);
     }
 
     return hostname;
+}
+
+function parseTargetUrl(targetText) {
+    if (/\\s/.test(targetText)) {
+        return { error: "invalid target url" };
+    }
+
+    if (typeof URL !== "undefined") {
+        try {
+            var url = new URL(targetText);
+
+            if (url.protocol !== "http:" && url.protocol !== "https:" && url.protocol !== "ws:" && url.protocol !== "wss:") {
+                return { error: "unsupported target protocol" };
+            }
+
+            if (url.username || url.password || url.hash) {
+                return { error: "target url cannot contain username, password or fragment" };
+            }
+
+            if (url.protocol === "ws:") {
+                url.protocol = "http:";
+            }
+
+            if (url.protocol === "wss:") {
+                url.protocol = "https:";
+            }
+
+            return {
+                target: url.href,
+                host: url.host,
+                sslName: getSslNameFromHost(url.hostname),
+            };
+        } catch (error) {
+            return { error: "invalid target url" };
+        }
+    }
+
+    var match = /^(https?|wss?):\\/\\/([^\\/?#@]+)([^#]*)$/i.exec(targetText);
+
+    if (!match) {
+        return { error: "invalid target url" };
+    }
+
+    var protocol = match[1].toLowerCase();
+    var host = match[2];
+
+    if (host.indexOf("@") >= 0) {
+        return { error: "target url cannot contain username or password" };
+    }
+
+    if (protocol === "ws") {
+        protocol = "http";
+    }
+
+    if (protocol === "wss") {
+        protocol = "https";
+    }
+
+    return {
+        target: protocol + "://" + host + match[3],
+        host: host,
+        sslName: getSslNameFromHost(host),
+    };
 }
 
 function parseTarget(r) {
@@ -644,47 +749,41 @@ function parseTarget(r) {
     var rawTarget = getArg(r, queryName);
 
     if (rawTarget === undefined || rawTarget === null || String(rawTarget).trim() === "") {
-        return { status: 400 };
+        return { status: 400, error: "missing dynamic target query parameter: " + queryName };
     }
 
     try {
         var targetText = String(rawTarget).trim();
-        var url = new URL(targetText);
-
-        if (url.protocol !== "http:" && url.protocol !== "https:" && url.protocol !== "ws:" && url.protocol !== "wss:") {
-            return { status: 400 };
-        }
-
-        if (url.username || url.password || url.hash) {
-            return { status: 400 };
-        }
+        var target = parseTargetUrl(targetText);
 
         var allowPattern = r.variables.dynamic_proxy_allow_pattern || "";
 
         if (allowPattern) {
-            var regexp = new RegExp(allowPattern);
+            var regexp;
+
+            try {
+                regexp = new RegExp(allowPattern);
+            } catch (error) {
+                return { status: 400, error: "invalid allow url pattern" };
+            }
 
             if (!regexp.test(targetText)) {
-                return { status: 403 };
+                return { status: 403, error: "target url is not allowed by pattern" };
             }
         }
 
-        if (url.protocol === "ws:") {
-            url.protocol = "http:";
-        }
-
-        if (url.protocol === "wss:") {
-            url.protocol = "https:";
+        if (target.error) {
+            return { status: 400, error: target.error };
         }
 
         return {
             status: "",
-            target: url.href,
-            host: url.host,
-            sslName: getSslName(url),
+            target: target.target,
+            host: target.host,
+            sslName: target.sslName,
         };
     } catch (error) {
-        return { status: 400 };
+        return { status: 400, error: "invalid dynamic proxy target" };
     }
 }
 
@@ -704,7 +803,11 @@ function sslName(r) {
     return parseTarget(r).sslName || "";
 }
 
-export default { status, target, host, sslName };
+function errorMessage(r) {
+    return parseTarget(r).error || "dynamic proxy error";
+}
+
+export default { status, target, host, sslName, errorMessage };
 `
 }
 
