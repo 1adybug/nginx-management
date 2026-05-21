@@ -1,6 +1,6 @@
 "use client"
 
-import { FC, Fragment, useRef, useState } from "react"
+import { FC, useRef, useState } from "react"
 
 import { Button, DatePicker, Form, Input, Modal, ModalProps, Popconfirm, Select, Table, TableProps, Tag } from "antd"
 import FormItem from "antd/es/form/FormItem"
@@ -13,12 +13,10 @@ import { z } from "zod/v4"
 import ProxyServiceEditor from "@/components/ProxyServiceEditor"
 
 import { useDeleteProxyService } from "@/hooks/useDeleteProxyService"
-import { useDownloadProxyServiceCertificate } from "@/hooks/useDownloadProxyServiceCertificate"
 import { useQueryProxyService } from "@/hooks/useQueryProxyService"
-import { useRegenerateProxyServiceCertificate } from "@/hooks/useRegenerateProxyServiceCertificate"
 import { useUpdateProxyService } from "@/hooks/useUpdateProxyService"
 
-import { ProxyService } from "@/prisma/generated/client"
+import { Certificate, ProxyService } from "@/prisma/generated/client"
 
 import { getParser } from "@/schemas"
 import { pageNumParser } from "@/schemas/pageNum"
@@ -33,6 +31,10 @@ import { formatProxyServiceUpstreamUrl } from "@/utils/proxyServiceAddress"
 import { formatProxyServiceTargetPath } from "@/utils/proxyServicePath"
 
 const queryBooleanSchema = z.union([z.boolean(), z.stringbool()])
+
+export interface ProxyServiceRow extends ProxyService {
+    certificate?: Certificate
+}
 
 function formatProxyServiceLocationTarget(location: ProxyServiceLocationParams) {
     return `${location.targetProtocol}://${formatProxyServiceUpstreamUrl({ address: location.targetHost, port: location.targetPort })}${formatProxyServiceTargetPath(location.targetPath)}`
@@ -97,20 +99,17 @@ const Page: FC = () => {
         ...rest,
     })
 
+    const proxyServices = data?.list.map(service => ({
+        ...service,
+        certificate: service.certificate ?? undefined,
+    }))
+
     const { mutateAsync: updateProxyServiceAsync, isPending: isUpdateProxyServicePending } = useUpdateProxyService()
     const { mutateAsync: deleteProxyServiceAsync, isPending: isDeleteProxyServicePending } = useDeleteProxyService()
-    const { mutateAsync: regenerateProxyServiceCertificateAsync, isPending: isRegenerateProxyServiceCertificatePending } =
-        useRegenerateProxyServiceCertificate()
-    const { mutateAsync: downloadProxyServiceCertificateAsync, isPending: isDownloadProxyServiceCertificatePending } = useDownloadProxyServiceCertificate()
 
-    const isRequesting =
-        isLoading ||
-        isUpdateProxyServicePending ||
-        isDeleteProxyServicePending ||
-        isRegenerateProxyServiceCertificatePending ||
-        isDownloadProxyServiceCertificatePending
+    const isRequesting = isLoading || isUpdateProxyServicePending || isDeleteProxyServicePending
 
-    const columns: Columns<ProxyService> = [
+    const columns: Columns<ProxyServiceRow> = [
         {
             title: "序号",
             key: "index",
@@ -222,12 +221,19 @@ const Page: FC = () => {
             },
         },
         {
-            title: "证书到期",
-            dataIndex: "certificateExpiresAt",
+            title: "证书",
+            dataIndex: "certificateId",
             align: "center",
             render(value, record) {
                 if (!record.httpsEnabled) return "未开启"
-                return value ? formatTime(value) : "未生成"
+                if (!record.certificate) return "未选择"
+
+                return (
+                    <div className="flex flex-col items-center">
+                        <span>{record.certificate.name}</span>
+                        <span className="text-xs text-slate-500">{formatTime(record.certificate.expiresAt)}</span>
+                    </div>
+                )
             },
         },
         {
@@ -287,22 +293,11 @@ const Page: FC = () => {
                             {record.enabled ? "停用" : "启用"}
                         </Button>
                         {record.httpsEnabled && (
-                            <Fragment>
-                                <Button size="small" color="primary" variant="text" disabled={isRequesting} onClick={() => onDownloadCertificate(value)}>
-                                    下载
-                                </Button>
-                                <Popconfirm title="确认重新生成自签证书" onConfirm={() => regenerateProxyServiceCertificateAsync(value)}>
-                                    <Button size="small" color="purple" variant="text" disabled={isRequesting}>
-                                        重签
-                                    </Button>
-                                </Popconfirm>
-                            </Fragment>
+                            <Button size="small" color="primary" variant="text" disabled={isRequesting} href="/certificate">
+                                证书
+                            </Button>
                         )}
-                        <Popconfirm
-                            title="确认删除代理服务"
-                            description="删除后会移除对应的 Nginx 配置和自签证书"
-                            onConfirm={() => deleteProxyServiceAsync(value)}
-                        >
+                        <Popconfirm title="确认删除代理服务" description="删除后会移除对应的 Nginx 配置" onConfirm={() => deleteProxyServiceAsync(value)}>
                             <Button size="small" color="danger" variant="text" disabled={isRequesting}>
                                 删除
                             </Button>
@@ -331,27 +326,12 @@ const Page: FC = () => {
         })
     }
 
-    async function onDownloadCertificate(id: string) {
-        const certificate = await downloadProxyServiceCertificateAsync(id)
-        const blob = new Blob([certificate.content], { type: "application/x-pem-file" })
-        const url = URL.createObjectURL(blob)
-        const link = document.createElement("a")
-
-        link.href = url
-        link.download = certificate.filename
-        document.body.append(link)
-        link.click()
-        link.remove()
-
-        window.setTimeout(() => URL.revokeObjectURL(url), 0)
-    }
-
     function onClose() {
         setEditId(undefined)
         setShowEditor(false)
     }
 
-    const onChange: TableProps<ProxyService>["onChange"] = function onChange(pagination, filters, sorter) {
+    const onChange: TableProps<ProxyServiceRow>["onChange"] = function onChange(pagination, filters, sorter) {
         if (Array.isArray(sorter)) return
 
         setQuery(prev => ({
@@ -431,9 +411,9 @@ const Page: FC = () => {
             <div ref={container} className="px-4 fill-y">
                 <ProxyServiceEditor id={editId} defaultServiceType={defaultServiceType} open={showEditor} width={840} onClose={onClose} />
                 <Modal open={isNonNullable(info)} onCancel={() => setInfo(undefined)} width={800} footer={null} {...info} />
-                <Table<ProxyService>
+                <Table<ProxyServiceRow>
                     columns={columns}
-                    dataSource={data?.list}
+                    dataSource={proxyServices}
                     loading={isLoading}
                     rowKey="id"
                     onChange={onChange}

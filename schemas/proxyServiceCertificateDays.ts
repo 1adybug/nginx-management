@@ -1,13 +1,9 @@
 import { getParser } from "."
-import dayjs from "dayjs"
 import { z } from "zod/v4"
 
-export function getDefaultProxyServiceCertificateDays() {
-    const today = dayjs().startOf("day")
-    return today.add(30, "year").diff(today, "day")
-}
+export const defaultProxyServiceCertificateYears = 100
 
-export const defaultProxyServiceCertificateDays = getDefaultProxyServiceCertificateDays()
+export const defaultProxyServiceCertificateDays = defaultProxyServiceCertificateYears * 365
 
 export const proxyServiceCertificateDaysSchema = z
     .transform(input => Number(input))

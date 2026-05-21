@@ -9,13 +9,13 @@ import { schemaToRule } from "soda-antd"
 
 import { useAddProxyService } from "@/hooks/useAddProxyService"
 import { useGetProxyService } from "@/hooks/useGetProxyService"
+import { useQueryCertificate } from "@/hooks/useQueryCertificate"
 import { useUpdateProxyService } from "@/hooks/useUpdateProxyService"
 
 import { ProxyService } from "@/prisma/generated/client"
 
 import { AddProxyServiceParams, defaultProxyServiceHttpPort, defaultProxyServiceHttpsPort } from "@/schemas/addProxyService"
 import { proxyServiceAddressSchema } from "@/schemas/proxyServiceAddress"
-import { defaultProxyServiceCertificateDays } from "@/schemas/proxyServiceCertificateDays"
 import { getProxyServiceLocations, ProxyServiceLocationParams } from "@/schemas/proxyServiceLocation"
 import { proxyServiceLocationPathSchema } from "@/schemas/proxyServiceLocationPath"
 import { proxyServiceHttpPortSchema, proxyServicePortSchema } from "@/schemas/proxyServicePort"
@@ -56,7 +56,6 @@ export function getDefaultProxyServiceFormValues({ serviceType = ProxyServiceTyp
         enabled: true,
         httpsEnabled: false,
         http2HttpsEnabled: false,
-        certificateDays: defaultProxyServiceCertificateDays,
     }
 
     if (serviceType === ProxyServiceType.反向代理) values.locations = [getDefaultProxyServiceLocationFormValues()]
@@ -301,17 +300,26 @@ export const PortForwardDetailForm: FC = () => {
     )
 }
 
-export const SslForm: FC<SslFormProps> = ({ isPortForward }) => (
-    <div>
-        <FormItem<AddProxyServiceParams> label="证书有效期">
-            <div className="flex items-center gap-2">
-                <FormItem<AddProxyServiceParams> name="certificateDays" noStyle>
-                    <InputNumber className="w-full" min={1} max={36500} />
-                </FormItem>
-                <span className="flex-none text-slate-500">天</span>
-            </div>
+export const SslForm: FC<SslFormProps> = ({ isPortForward }) => <SslFormContent isPortForward={isPortForward} />
+
+export const SslFormContent: FC<SslFormProps> = ({ isPortForward }) => {
+    const httpsEnabled = Form.useWatch("httpsEnabled")
+    const sourceAddress = Form.useWatch("sourceAddress")
+    const { data, isLoading } = useQueryCertificate({ pageSize: 1000 }, { enabled: !!httpsEnabled })
+
+    const options = (data?.list ?? []).map(certificate => ({
+        label: `${certificate.name}（${certificate.address}）`,
+        value: certificate.id,
+        disabled: !!sourceAddress && certificate.address !== sourceAddress,
+    }))
+
+    if (!httpsEnabled) return null
+
+    return (
+        <FormItem<AddProxyServiceParams> name="certificateId" label={isPortForward ? "SSL 证书" : "HTTPS 证书"}>
+            <Select loading={isLoading} allowClear showSearch={{ optionFilterProp: "label" }} options={options} placeholder="请选择已有自签证书" />
         </FormItem>
-    </div>
-)
+    )
+}
 
 export default ProxyServiceEditor

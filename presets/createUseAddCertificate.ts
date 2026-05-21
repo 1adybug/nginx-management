@@ -2,9 +2,9 @@ import { useId } from "react"
 
 import { withUseMutationDefaults } from "soda-tanstack-query"
 
-import { regenerateProxyServiceCertificate } from "@/shared/regenerateProxyServiceCertificate"
+import { addCertificate } from "@/shared/addCertificate"
 
-export const createUseRegenerateProxyServiceCertificate = withUseMutationDefaults<typeof regenerateProxyServiceCertificate>(() => {
+export const createUseAddCertificate = withUseMutationDefaults<typeof addCertificate>(() => {
     const key = useId()
 
     return {
@@ -12,18 +12,17 @@ export const createUseRegenerateProxyServiceCertificate = withUseMutationDefault
             message.open({
                 key,
                 type: "loading",
-                content: "重新生成自签证书中...",
+                content: "生成自签证书中...",
                 duration: 0,
             })
         },
         onSuccess(data, variables, onMutateResult, context) {
-            context.client.invalidateQueries({ queryKey: ["query-proxy-service"] })
-            context.client.invalidateQueries({ queryKey: ["get-proxy-service", data.id] })
+            context.client.invalidateQueries({ queryKey: ["query-certificate"] })
 
             message.open({
                 key,
                 type: "success",
-                content: "重新生成自签证书成功",
+                content: "生成自签证书成功",
             })
         },
         onError(error, variables, onMutateResult, context) {

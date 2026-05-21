@@ -2,26 +2,23 @@ import { getPagination } from "deepsea-tools"
 
 import { prisma } from "@/prisma"
 
-import { ProxyServiceOrderByWithRelationInput } from "@/prisma/generated/internal/prismaNamespace"
+import { CertificateOrderByWithRelationInput } from "@/prisma/generated/internal/prismaNamespace"
 
 import { defaultPageNum } from "@/schemas/pageNum"
 import { defaultPageSize } from "@/schemas/pageSize"
-import { queryProxyServiceSchema } from "@/schemas/queryProxyService"
+import { queryCertificateSchema } from "@/schemas/queryCertificate"
 
 import { createSharedFn } from "@/server/createSharedFn"
 import { isAdmin } from "@/server/isAdmin"
 
-export const queryProxyService = createSharedFn({
-    name: "queryProxyService",
-    schema: queryProxyServiceSchema,
+export const queryCertificate = createSharedFn({
+    name: "queryCertificate",
+    schema: queryCertificateSchema,
     filter: isAdmin,
-})(async function queryProxyService({
+})(async function queryCertificate({
     id,
-    serviceType,
-    sourceAddress = "",
-    targetHost = "",
-    enabled,
-    httpsEnabled,
+    name = "",
+    address = "",
     createdAfter,
     createdBefore,
     updatedAfter,
@@ -31,8 +28,8 @@ export const queryProxyService = createSharedFn({
     sortBy = "createdAt",
     sortOrder = "desc",
 }) {
-    const sourceAddressItems = sourceAddress.split(/\s+/).filter(Boolean)
-    const targetHostItems = targetHost.split(/\s+/).filter(Boolean)
+    const nameItems = name.split(/\s+/).filter(Boolean)
+    const addressItems = address.split(/\s+/).filter(Boolean)
 
     const where = id
         ? { id }
@@ -45,56 +42,42 @@ export const queryProxyService = createSharedFn({
                   gte: updatedAfter,
                   lte: updatedBefore,
               },
-              serviceType,
-              enabled,
-              httpsEnabled,
               AND: [
-                  ...sourceAddressItems.map(item => ({
-                      sourceAddress: {
+                  ...nameItems.map(item => ({
+                      name: {
                           contains: item,
                       },
                   })),
-                  ...targetHostItems.map(item => ({
-                      targetHost: {
+                  ...addressItems.map(item => ({
+                      address: {
                           contains: item,
                       },
                   })),
               ],
           }
 
-    const orderBy: ProxyServiceOrderByWithRelationInput[] = [
+    const orderBy: CertificateOrderByWithRelationInput[] = [
         {
             createdAt: sortBy === "createdAt" ? sortOrder : "desc",
         },
     ]
 
     if (sortBy !== "createdAt") {
-        if (
-            sortBy === "serviceType" ||
-            sortBy === "sourceAddress" ||
-            sortBy === "targetHost" ||
-            sortBy === "targetPort" ||
-            sortBy === "enabled" ||
-            sortBy === "httpsEnabled" ||
-            sortBy === "updatedAt"
-        ) {
+        if (sortBy === "name" || sortBy === "address" || sortBy === "expiresAt" || sortBy === "updatedAt") {
             orderBy.unshift({
                 [sortBy]: sortOrder,
             })
         }
     }
 
-    const data = await prisma.proxyService.findMany({
+    const data = await prisma.certificate.findMany({
         where,
-        include: {
-            certificate: true,
-        },
         skip: (pageNum - 1) * pageSize,
         take: pageSize,
         orderBy,
     })
 
-    const total = await prisma.proxyService.count({ where })
+    const total = await prisma.certificate.count({ where })
 
     return getPagination({
         data,

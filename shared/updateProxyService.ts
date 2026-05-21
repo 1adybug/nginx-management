@@ -6,6 +6,7 @@ import { updateProxyServiceSchema } from "@/schemas/updateProxyService"
 
 import { createSharedFn } from "@/server/createSharedFn"
 import { isAdmin } from "@/server/isAdmin"
+import { resolveProxyServiceCertificate } from "@/server/proxyServiceCertificateData"
 import { resolveProxyServiceTarget } from "@/server/proxyServiceData"
 import { syncProxyServices, validateProxyServicePortConflict } from "@/server/syncProxyServices"
 
@@ -47,20 +48,16 @@ export const updateProxyService = createSharedFn({
         locations,
     })
 
-    const previousCertificateAddress = proxyService.sourceAddress || proxyService.targetHost || "localhost"
-    const nextCertificateAddress = nextProxyService.sourceAddress || nextProxyService.targetHost || "localhost"
-    const shouldResetCertificate = previousCertificateAddress !== nextCertificateAddress
+    const certificate = await resolveProxyServiceCertificate({
+        httpsEnabled: nextProxyService.httpsEnabled,
+        certificateId: nextProxyService.certificateId ?? undefined,
+        sourceAddress: nextProxyService.sourceAddress,
+    })
 
     const data = {
         ...params,
         ...target,
-        ...(shouldResetCertificate
-            ? {
-                  certificatePath: null,
-                  certificateKeyPath: null,
-                  certificateExpiresAt: null,
-              }
-            : {}),
+        certificateId: certificate?.id ?? null,
     }
 
     await validateProxyServicePortConflict({

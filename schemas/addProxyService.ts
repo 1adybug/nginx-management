@@ -1,8 +1,8 @@
 import { getParser } from "."
 import { z } from "zod/v4"
 
+import { certificateIdSchema } from "./certificateId"
 import { proxyServiceAddressSchema } from "./proxyServiceAddress"
-import { proxyServiceCertificateDaysSchema } from "./proxyServiceCertificateDays"
 import { proxyServiceLocationsSchema } from "./proxyServiceLocation"
 import { proxyServiceHttpPortSchema, proxyServicePortSchema } from "./proxyServicePort"
 import { ProxyServiceType, proxyServiceTypeSchema } from "./proxyServiceType"
@@ -43,7 +43,7 @@ export const proxyServiceInputSchema = z.object(
         enabled: z.boolean({ message: "无效的启用状态" }).catch(true),
         httpsEnabled: z.boolean({ message: "无效的 HTTPS 开关" }).catch(false),
         http2HttpsEnabled: z.boolean({ message: "无效的 HTTP 跳转 HTTPS 开关" }).catch(false),
-        certificateDays: proxyServiceCertificateDaysSchema,
+        certificateId: certificateIdSchema.optional(),
         remark: optionalProxyServiceRemarkSchema,
     },
     { message: "无效的代理服务参数" },
@@ -67,6 +67,9 @@ export const addProxyServiceSchema = proxyServiceInputSchema
     })
     .refine(value => value.serviceType !== ProxyServiceType.端口转发 || !value.httpsEnabled || !!value.sourceAddress, {
         message: "端口转发开启 SSL 证书时访问地址不能为空",
+    })
+    .refine(value => !value.httpsEnabled || !!value.certificateId, {
+        message: "开启 HTTPS / SSL 时必须选择自签证书",
     })
     .refine(value => value.serviceType !== ProxyServiceType.端口转发 || value.httpPort > 0, {
         message: "端口转发的入站端口不能为 0",

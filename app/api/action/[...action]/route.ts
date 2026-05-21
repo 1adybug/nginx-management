@@ -2,22 +2,25 @@ import { NextRequest, NextResponse } from "next/server"
 
 import { createRouteFn, OriginalResponseFn, RouteBodyType, RouteHandler } from "@/server/createResponseFn"
 
+import { addCertificate } from "@/shared/addCertificate"
 import { addProxyService } from "@/shared/addProxyService"
 import { addUser } from "@/shared/addUser"
 import { banUser } from "@/shared/banUser"
 import { createFirstUser } from "@/shared/createFirstUser"
+import { deleteCertificate } from "@/shared/deleteCertificate"
 import { deleteProxyService } from "@/shared/deleteProxyService"
 import { deleteUser } from "@/shared/deleteUser"
-import { downloadProxyServiceCertificate } from "@/shared/downloadProxyServiceCertificate"
+import { downloadCertificate } from "@/shared/downloadCertificate"
 import { getProxyService } from "@/shared/getProxyService"
 import { getUser } from "@/shared/getUser"
 import { login } from "@/shared/login"
+import { queryCertificate } from "@/shared/queryCertificate"
 import { queryErrorLog } from "@/shared/queryErrorLog"
 import { queryOperationLog } from "@/shared/queryOperationLog"
 import { queryProxyService } from "@/shared/queryProxyService"
 import { querySystemSettings } from "@/shared/querySystemSettings"
 import { queryUser } from "@/shared/queryUser"
-import { regenerateProxyServiceCertificate } from "@/shared/regenerateProxyServiceCertificate"
+import { regenerateCertificate } from "@/shared/regenerateCertificate"
 import { sendCurrentUserPhoneNumberOtp } from "@/shared/sendCurrentUserPhoneNumberOtp"
 import { sendPhoneNumberOtp } from "@/shared/sendPhoneNumberOtp"
 import { unbanUser } from "@/shared/unbanUser"
@@ -37,22 +40,25 @@ function registerRoute<TParams extends [arg?: unknown], TData, TPathname extends
     routeMap.set(pathname, createRouteFn(fn))
 }
 
+registerRoute(addCertificate)
 registerRoute(addProxyService)
 registerRoute(addUser)
 registerRoute(banUser)
 registerRoute(createFirstUser)
+registerRoute(deleteCertificate)
 registerRoute(deleteProxyService)
 registerRoute(deleteUser)
-registerRoute(downloadProxyServiceCertificate)
+registerRoute(downloadCertificate)
 registerRoute(getProxyService)
 registerRoute(getUser)
 registerRoute(login)
+registerRoute(queryCertificate)
 registerRoute(queryErrorLog)
 registerRoute(queryOperationLog)
 registerRoute(queryProxyService)
 registerRoute(querySystemSettings)
 registerRoute(queryUser)
-registerRoute(regenerateProxyServiceCertificate)
+registerRoute(regenerateCertificate)
 registerRoute(sendCurrentUserPhoneNumberOtp)
 registerRoute(sendPhoneNumberOtp)
 registerRoute(unbanUser)

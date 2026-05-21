@@ -28,6 +28,11 @@ const navs: NavItem[] = [
         name: "代理服务",
     },
     {
+        href: "/certificate",
+        name: "自签证书",
+        filter: isAdmin,
+    },
+    {
         href: "/profile",
         name: "个人中心",
     },

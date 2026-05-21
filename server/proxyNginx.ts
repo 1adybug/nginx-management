@@ -5,7 +5,7 @@ import { promisify } from "node:util"
 
 import { prisma } from "@/prisma"
 
-import { ProxyService } from "@/prisma/generated/client"
+import { Certificate, ProxyService } from "@/prisma/generated/client"
 
 import { getProxyServiceLocations, ProxyServiceLocationParams } from "@/schemas/proxyServiceLocation"
 import { ProxyServiceType } from "@/schemas/proxyServiceType"
@@ -24,26 +24,26 @@ export interface ExecProxyCommandParams {
 }
 
 export interface RenderProxyServiceConfigParams {
-    service: ProxyService
+    service: ProxyServiceWithCertificate
 }
 
 export interface RenderProxyServerBlockParams {
-    service: ProxyService
+    service: ProxyServiceWithCertificate
     listenPort: number
     sslEnabled?: boolean
 }
 
 export interface RenderProxyLocationParams {
-    service: ProxyService
+    service: ProxyServiceWithCertificate
     location: ProxyServiceLocationParams
 }
 
 export interface RenderProxyLocationsParams {
-    service: ProxyService
+    service: ProxyServiceWithCertificate
 }
 
 export interface RenderPortForwardServerBlockParams {
-    service: ProxyService
+    service: ProxyServiceWithCertificate
     protocol: string
 }
 
@@ -54,7 +54,7 @@ export interface RenderPortForwardListenDirectivesParams {
 }
 
 export interface RenderRedirectServerBlockParams {
-    service: ProxyService
+    service: ProxyServiceWithCertificate
 }
 
 export interface RenderListenDirectivesParams {
@@ -62,18 +62,19 @@ export interface RenderListenDirectivesParams {
     sslEnabled?: boolean
 }
 
-export interface EnsureProxyServiceCertificateParams {
-    service: ProxyService
-    force?: boolean
-}
-
-export interface ProxyServiceCertificatePaths {
+export interface CertificatePaths {
     certificatePath: string
     certificateKeyPath: string
 }
 
+export interface GetCertificatePathsParams {
+    id: string
+    certificatePath?: string
+    certificateKeyPath?: string
+}
+
 export interface WriteProxyServiceConfigFilesParams {
-    services: ProxyService[]
+    services: ProxyServiceWithCertificate[]
     directoryPath: string
     serviceType: ProxyServiceType
 }
@@ -91,7 +92,15 @@ export interface CreateNginxMainConfigParams {
 }
 
 export interface CreateOpenSslConfigParams {
-    service: ProxyService
+    address: string
+}
+
+export interface GenerateSelfSignedCertificateParams {
+    id: string
+    address: string
+    days: number
+    certificatePath?: string
+    certificateKeyPath?: string
 }
 
 export interface EnsureNginxMainConfigParams {
@@ -112,6 +121,10 @@ export interface TestProxyNginxConfigParams {
     nginxConfigPath: string
 }
 
+export interface ProxyServiceWithCertificate extends ProxyService {
+    certificate?: Certificate
+}
+
 export async function applyProxyServices() {
     const config = getProxyNginxConfig()
 
@@ -120,15 +133,21 @@ export async function applyProxyServices() {
     const result = await withFileLock({ lockFilePath: config.lockFilePath, staleMs: 60_000 }, async () => {
         await ensureProxyNginxDirectories(config)
 
-        const services = await prisma.proxyService.findMany({
+        const rawServices = await prisma.proxyService.findMany({
             where: { enabled: true },
+            include: { certificate: true },
             orderBy: [{ createdAt: "asc" }],
         })
+
+        const services = rawServices.map(service => ({
+            ...service,
+            certificate: service.certificate ?? undefined,
+        }))
+
         const streamEnabled = services.some(service => service.serviceType === ProxyServiceType.端口转发)
 
         await ensureNginxMainConfig({ config, streamEnabled })
-
-        const servicesWithCertificates = await Promise.all(services.map(service => ensureProxyServiceCertificate({ service })))
+        await validateProxyServiceCertificates(services)
 
         const tempConfDirectoryPath = resolve(config.tempDirectoryPath, `conf-${Date.now()}`)
         const tempStreamConfDirectoryPath = resolve(config.tempDirectoryPath, `stream-conf-${Date.now()}`)
@@ -138,12 +157,12 @@ export async function applyProxyServices() {
             await mkdir(tempConfDirectoryPath, { recursive: true })
             await mkdir(tempStreamConfDirectoryPath, { recursive: true })
             await writeProxyServiceConfigFiles({
-                services: servicesWithCertificates,
+                services,
                 directoryPath: tempConfDirectoryPath,
                 serviceType: ProxyServiceType.反向代理,
             })
             await writeProxyServiceConfigFiles({
-                services: servicesWithCertificates,
+                services,
                 directoryPath: tempStreamConfDirectoryPath,
                 serviceType: ProxyServiceType.端口转发,
             })
@@ -222,26 +241,16 @@ export async function ensureNginxMainConfig({ config, streamEnabled = false }: E
     )
 }
 
-export async function ensureProxyServiceCertificate({ service, force = false }: EnsureProxyServiceCertificateParams) {
-    if (!service.httpsEnabled) return service
-
+export async function generateSelfSignedCertificate({ id, address, days, certificatePath, certificateKeyPath }: GenerateSelfSignedCertificateParams) {
     const config = getProxyNginxConfig()
     await ensureProxyNginxDirectories(config)
 
-    const paths = getProxyServiceCertificatePaths(service)
-    const shouldGenerate =
-        force ||
-        !service.certificatePath ||
-        !service.certificateKeyPath ||
-        !(await hasFile(paths.certificatePath)) ||
-        !(await hasFile(paths.certificateKeyPath))
+    const paths = getCertificatePaths({ id, certificatePath, certificateKeyPath })
 
-    if (!shouldGenerate) return service
-
-    const openSslConfigPath = resolve(config.tempDirectoryPath, `${service.id}-openssl.cnf`)
+    const openSslConfigPath = resolve(config.tempDirectoryPath, `${id}-openssl.cnf`)
 
     try {
-        await writeFile(openSslConfigPath, createOpenSslConfig({ service }), "utf8")
+        await writeFile(openSslConfigPath, createOpenSslConfig({ address }), "utf8")
 
         await execProxyCommand({
             command: "openssl",
@@ -252,7 +261,7 @@ export async function ensureProxyServiceCertificate({ service, force = false }: 
                 "-newkey",
                 "rsa:2048",
                 "-days",
-                String(service.certificateDays),
+                String(days),
                 "-keyout",
                 paths.certificateKeyPath,
                 "-out",
@@ -265,18 +274,10 @@ export async function ensureProxyServiceCertificate({ service, force = false }: 
         await rm(openSslConfigPath, { force: true })
     }
 
-    const certificateExpiresAt = new Date(Date.now() + service.certificateDays * 24 * 60 * 60 * 1000)
-
-    const nextService = await prisma.proxyService.update({
-        where: { id: service.id },
-        data: {
-            certificatePath: paths.certificatePath,
-            certificateKeyPath: paths.certificateKeyPath,
-            certificateExpiresAt,
-        },
-    })
-
-    return nextService
+    return {
+        ...paths,
+        expiresAt: new Date(Date.now() + days * 24 * 60 * 60 * 1000),
+    }
 }
 
 export async function hasFile(filePath: string) {
@@ -288,15 +289,29 @@ export async function hasFile(filePath: string) {
     }
 }
 
-export function getProxyServiceCertificatePaths(service: ProxyService): ProxyServiceCertificatePaths {
+export function getCertificatePaths({ id, certificatePath, certificateKeyPath }: GetCertificatePathsParams): CertificatePaths {
     const config = getProxyNginxConfig()
-    const certificatePath = service.certificatePath || resolve(config.certDirectoryPath, `${service.id}.crt`)
-    const certificateKeyPath = service.certificateKeyPath || resolve(config.certDirectoryPath, `${service.id}.key`)
+    const nextCertificatePath = certificatePath || resolve(config.certDirectoryPath, `${id}.crt`)
+    const nextCertificateKeyPath = certificateKeyPath || resolve(config.certDirectoryPath, `${id}.key`)
 
     return {
-        certificatePath,
-        certificateKeyPath,
+        certificatePath: nextCertificatePath,
+        certificateKeyPath: nextCertificateKeyPath,
     }
+}
+
+export async function validateProxyServiceCertificates(services: ProxyServiceWithCertificate[]) {
+    await Promise.all(
+        services.map(async service => {
+            if (!service.httpsEnabled) return
+
+            const certificate = service.certificate
+            if (!certificate) throw new Error(`代理服务 ${service.id} 已开启 HTTPS / SSL，但未选择自签证书`)
+            if (certificate.address !== service.sourceAddress) throw new Error(`代理服务 ${service.id} 的访问地址和自签证书地址不一致`)
+            if (!(await hasFile(certificate.certificatePath))) throw new Error(`自签证书 ${certificate.name} 的证书文件不存在`)
+            if (!(await hasFile(certificate.certificateKeyPath))) throw new Error(`自签证书 ${certificate.name} 的私钥文件不存在`)
+        }),
+    )
 }
 
 export async function writeProxyServiceConfigFiles({ services, directoryPath, serviceType }: WriteProxyServiceConfigFilesParams) {
@@ -369,10 +384,11 @@ export function renderPortForwardConfig({ service }: RenderProxyServiceConfigPar
 
 export function renderPortForwardServerBlock({ service, protocol }: RenderPortForwardServerBlockParams) {
     const sslEnabled = protocol === "tcp" && service.httpsEnabled
+    const certificate = sslEnabled ? getProxyServiceCertificate(service) : undefined
     const sslDirectives = sslEnabled
         ? [
-              `    ssl_certificate ${toNginxPath(service.certificatePath || "")};`,
-              `    ssl_certificate_key ${toNginxPath(service.certificateKeyPath || "")};`,
+              `    ssl_certificate ${toNginxPath(certificate?.certificatePath || "")};`,
+              `    ssl_certificate_key ${toNginxPath(certificate?.certificateKeyPath || "")};`,
               "    ssl_protocols TLSv1.2 TLSv1.3;",
           ]
         : []
@@ -391,10 +407,11 @@ export function renderPortForwardServerBlock({ service, protocol }: RenderPortFo
 }
 
 export function renderProxyServerBlock({ service, listenPort, sslEnabled = false }: RenderProxyServerBlockParams) {
+    const certificate = sslEnabled ? getProxyServiceCertificate(service) : undefined
     const sslDirectives = sslEnabled
         ? [
-              `    ssl_certificate ${toNginxPath(service.certificatePath || "")};`,
-              `    ssl_certificate_key ${toNginxPath(service.certificateKeyPath || "")};`,
+              `    ssl_certificate ${toNginxPath(certificate?.certificatePath || "")};`,
+              `    ssl_certificate_key ${toNginxPath(certificate?.certificateKeyPath || "")};`,
               "    ssl_protocols TLSv1.2 TLSv1.3;",
               "    ssl_prefer_server_ciphers off;",
           ]
@@ -509,8 +526,7 @@ http {
 ${streamBlock}`
 }
 
-export function createOpenSslConfig({ service }: CreateOpenSslConfigParams) {
-    const address = getProxyServiceCertificateAddress(service)
+export function createOpenSslConfig({ address }: CreateOpenSslConfigParams) {
     const addressType = getProxyServiceAddressType(address)
     const altNameKey = addressType === ProxyServiceAddressType.域名 ? "DNS.1" : "IP.1"
 
@@ -532,8 +548,9 @@ ${altNameKey} = ${escapeOpenSslValue(address)}
 `
 }
 
-export function getProxyServiceCertificateAddress(service: Pick<ProxyService, "sourceAddress" | "targetHost">) {
-    return service.sourceAddress || service.targetHost || "localhost"
+export function getProxyServiceCertificate(service: ProxyServiceWithCertificate) {
+    if (!service.certificate) throw new Error(`代理服务 ${service.id} 已开启 HTTPS / SSL，但未选择自签证书`)
+    return service.certificate
 }
 
 export async function testProxyNginxConfig({ config, nginxConfigPath }: TestProxyNginxConfigParams) {

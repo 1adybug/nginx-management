@@ -2,9 +2,9 @@ import { useId } from "react"
 
 import { withUseMutationDefaults } from "soda-tanstack-query"
 
-import { downloadProxyServiceCertificate } from "@/shared/downloadProxyServiceCertificate"
+import { downloadCertificate } from "@/shared/downloadCertificate"
 
-export const createUseDownloadProxyServiceCertificate = withUseMutationDefaults<typeof downloadProxyServiceCertificate>(() => {
+export const createUseDownloadCertificate = withUseMutationDefaults<typeof downloadCertificate>(() => {
     const key = useId()
 
     return {
@@ -17,9 +17,6 @@ export const createUseDownloadProxyServiceCertificate = withUseMutationDefaults<
             })
         },
         onSuccess(data, variables, onMutateResult, context) {
-            context.client.invalidateQueries({ queryKey: ["query-proxy-service"] })
-            context.client.invalidateQueries({ queryKey: ["get-proxy-service", data.id] })
-
             message.open({
                 key,
                 type: "success",
