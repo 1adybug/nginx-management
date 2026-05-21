@@ -52,6 +52,7 @@ export function getDefaultProxyServiceFormValues({ serviceType = ProxyServiceTyp
         httpsPort: defaultProxyServiceHttpsPort,
         targetProtocol: ProxyTargetProtocol.HTTP,
         websocketEnabled: true,
+        corsEnabled: false,
         tcpForwardEnabled: true,
         udpForwardEnabled: false,
         enabled: true,
@@ -75,6 +76,7 @@ export function getProxyServiceFormValues(data: ProxyService) {
         targetPort: data.targetPort,
         locations: getProxyServiceLocations(data.locations),
         websocketEnabled: data.websocketEnabled,
+        corsEnabled: data.corsEnabled,
         tcpForwardEnabled: data.tcpForwardEnabled,
         udpForwardEnabled: data.udpForwardEnabled,
         enabled: data.enabled,
@@ -269,8 +271,11 @@ export const ReverseProxyDetailForm: FC = () => {
                     )}
                 </Form.List>
             </FormItem>
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-4 gap-2">
                 <FormItem<AddProxyServiceParams> name="websocketEnabled" label="WebSocket" valuePropName="checked">
+                    <Switch />
+                </FormItem>
+                <FormItem<AddProxyServiceParams> name="corsEnabled" label="关闭跨域" valuePropName="checked">
                     <Switch />
                 </FormItem>
                 <FormItem<AddProxyServiceParams> name="httpsEnabled" label="HTTPS" valuePropName="checked">

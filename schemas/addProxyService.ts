@@ -38,6 +38,7 @@ export const proxyServiceInputSchema = z.object(
         targetPort: proxyServicePortSchema.optional(),
         locations: proxyServiceLocationsSchema.catch([]),
         websocketEnabled: z.boolean({ message: "无效的 WebSocket 开关" }).catch(true),
+        corsEnabled: z.boolean({ message: "无效的跨域开关" }).catch(false),
         tcpForwardEnabled: z.boolean({ message: "无效的 TCP 开关" }).catch(true),
         udpForwardEnabled: z.boolean({ message: "无效的 UDP 开关" }).catch(false),
         enabled: z.boolean({ message: "无效的启用状态" }).catch(true),

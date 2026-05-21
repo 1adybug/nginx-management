@@ -173,7 +173,7 @@ const Page: FC = () => {
             },
         },
         {
-            title: "协议",
+            title: "功能",
             dataIndex: "websocketEnabled",
             align: "center",
             render(value, record) {
@@ -186,7 +186,12 @@ const Page: FC = () => {
                     )
                 }
 
-                return <Tag color={value ? "green" : "default"}>WebSocket {value ? "开启" : "关闭"}</Tag>
+                return (
+                    <div className="inline-flex flex-wrap justify-center gap-1">
+                        <Tag color={value ? "green" : "default"}>WebSocket {value ? "开启" : "关闭"}</Tag>
+                        <Tag color={record.corsEnabled ? "blue" : "default"}>{record.corsEnabled ? "关闭跨域" : "默认跨域"}</Tag>
+                    </div>
+                )
             },
         },
         {

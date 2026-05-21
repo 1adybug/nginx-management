@@ -42,6 +42,10 @@ export interface RenderProxyLocationsParams {
     service: ProxyServiceWithCertificate
 }
 
+export interface RenderProxyCorsDirectivesParams {
+    service: ProxyServiceWithCertificate
+}
+
 export interface RenderPortForwardServerBlockParams {
     service: ProxyServiceWithCertificate
     protocol: string
@@ -457,9 +461,11 @@ export function renderProxyLocation({ service, location }: RenderProxyLocationPa
     const websocketDirectives = service.websocketEnabled
         ? ["        proxy_http_version 1.1;", "        proxy_set_header Upgrade $http_upgrade;", "        proxy_set_header Connection $connection_upgrade;"]
         : []
+    const corsDirectives = renderProxyCorsDirectives({ service })
 
     return [
         `    location ${location.locationPath} {`,
+        corsDirectives,
         `        proxy_pass ${upstream};`,
         "        proxy_set_header Host $host;",
         "        proxy_set_header X-Real-IP $remote_addr;",
@@ -468,6 +474,24 @@ export function renderProxyLocation({ service, location }: RenderProxyLocationPa
         "        proxy_set_header X-Forwarded-Host $host;",
         ...websocketDirectives,
         "    }",
+    ]
+        .filter(Boolean)
+        .join("\n")
+}
+
+export function renderProxyCorsDirectives({ service }: RenderProxyCorsDirectivesParams) {
+    if (!service.corsEnabled) return ""
+
+    return [
+        "        add_header Access-Control-Allow-Origin $http_origin always;",
+        '        add_header Access-Control-Allow-Methods "GET, POST, PUT, PATCH, DELETE, OPTIONS" always;',
+        "        add_header Access-Control-Allow-Headers $http_access_control_request_headers always;",
+        '        add_header Access-Control-Allow-Credentials "true" always;',
+        '        add_header Access-Control-Max-Age "86400" always;',
+        '        add_header Vary "Origin" always;',
+        "        if ($request_method = OPTIONS) {",
+        "            return 204;",
+        "        }",
     ].join("\n")
 }
 

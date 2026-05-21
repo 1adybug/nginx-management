@@ -64,6 +64,7 @@ model ProxyService {
     targetPort        Int
     locations         Json         @default("[]")
     websocketEnabled  Boolean      @default(true)
+    corsEnabled       Boolean      @default(false)
     tcpForwardEnabled Boolean      @default(true)
     udpForwardEnabled Boolean      @default(false)
     enabled           Boolean      @default(true)
