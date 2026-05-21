@@ -50,8 +50,8 @@ export const proxyServiceInputSchema = z.object(
 )
 
 export const addProxyServiceSchema = proxyServiceInputSchema
-    .refine(value => value.serviceType !== ProxyServiceType.反向代理 || !!value.sourceAddress, {
-        message: "反向代理的访问地址不能为空",
+    .refine(value => value.serviceType !== ProxyServiceType.反向代理 || value.httpsEnabled || !!value.sourceAddress, {
+        message: "反向代理未开启 HTTPS 时访问地址不能为空",
     })
     .refine(value => value.serviceType !== ProxyServiceType.反向代理 || value.locations.length > 0, {
         message: "反向代理必须至少配置一条路径规则",
@@ -64,9 +64,6 @@ export const addProxyServiceSchema = proxyServiceInputSchema
     })
     .refine(value => value.serviceType !== ProxyServiceType.端口转发 || !!value.targetHost, {
         message: "端口转发的转发主机不能为空",
-    })
-    .refine(value => value.serviceType !== ProxyServiceType.端口转发 || !value.httpsEnabled || !!value.sourceAddress, {
-        message: "端口转发开启 SSL 证书时访问地址不能为空",
     })
     .refine(value => !value.httpsEnabled || !!value.certificateId, {
         message: "开启 HTTPS / SSL 时必须选择自签证书",

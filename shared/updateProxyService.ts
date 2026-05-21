@@ -20,19 +20,30 @@ export const updateProxyService = createSharedFn({
     const proxyService = await prisma.proxyService.findUnique({ where: { id } })
     if (!proxyService) throw new ClientError("代理服务不存在")
 
-    const nextProxyService = {
+    const nextProxyServiceInput = {
         ...proxyService,
         ...params,
     }
 
-    if (nextProxyService.serviceType === ProxyServiceType.反向代理 && !nextProxyService.sourceAddress) throw new ClientError("反向代理的访问地址不能为空")
+    const { certificate, sourceAddress } = await resolveProxyServiceCertificate({
+        httpsEnabled: nextProxyServiceInput.httpsEnabled,
+        certificateId: nextProxyServiceInput.certificateId ?? undefined,
+        sourceAddress: nextProxyServiceInput.serviceType === ProxyServiceType.反向代理 ? nextProxyServiceInput.sourceAddress : undefined,
+    })
+
+    const nextProxyService = {
+        ...nextProxyServiceInput,
+        sourceAddress,
+        certificateId: certificate?.id ?? null,
+    }
+
     if (nextProxyService.serviceType === ProxyServiceType.反向代理 && !nextProxyService.httpsEnabled && nextProxyService.httpPort <= 0)
         throw new ClientError("未开启 HTTPS 时 HTTP 端口不能为 0")
+    if (nextProxyService.serviceType === ProxyServiceType.反向代理 && !nextProxyService.httpsEnabled && !nextProxyService.sourceAddress)
+        throw new ClientError("反向代理未开启 HTTPS 时访问地址不能为空")
     if (nextProxyService.serviceType === ProxyServiceType.反向代理 && nextProxyService.httpsEnabled && nextProxyService.httpPort === nextProxyService.httpsPort)
         throw new ClientError("HTTP 端口和 HTTPS 端口不能相同")
     if (nextProxyService.serviceType === ProxyServiceType.端口转发 && nextProxyService.httpPort <= 0) throw new ClientError("端口转发的入站端口不能为 0")
-    if (nextProxyService.serviceType === ProxyServiceType.端口转发 && nextProxyService.httpsEnabled && !nextProxyService.sourceAddress)
-        throw new ClientError("端口转发开启 SSL 证书时访问地址不能为空")
     if (nextProxyService.serviceType === ProxyServiceType.端口转发 && !nextProxyService.tcpForwardEnabled && !nextProxyService.udpForwardEnabled)
         throw new ClientError("端口转发必须至少开启 TCP 或 UDP")
     if (nextProxyService.serviceType === ProxyServiceType.端口转发 && nextProxyService.httpsEnabled && !nextProxyService.tcpForwardEnabled)
@@ -48,15 +59,10 @@ export const updateProxyService = createSharedFn({
         locations,
     })
 
-    const certificate = await resolveProxyServiceCertificate({
-        httpsEnabled: nextProxyService.httpsEnabled,
-        certificateId: nextProxyService.certificateId ?? undefined,
-        sourceAddress: nextProxyService.sourceAddress,
-    })
-
     const data = {
         ...params,
         ...target,
+        sourceAddress,
         certificateId: certificate?.id ?? null,
     }
 

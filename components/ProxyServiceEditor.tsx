@@ -15,6 +15,7 @@ import { useUpdateProxyService } from "@/hooks/useUpdateProxyService"
 import { ProxyService } from "@/prisma/generated/client"
 
 import { AddProxyServiceParams, defaultProxyServiceHttpPort, defaultProxyServiceHttpsPort } from "@/schemas/addProxyService"
+import { certificateIdSchema } from "@/schemas/certificateId"
 import { proxyServiceAddressSchema } from "@/schemas/proxyServiceAddress"
 import { getProxyServiceLocations, ProxyServiceLocationParams } from "@/schemas/proxyServiceLocation"
 import { proxyServiceLocationPathSchema } from "@/schemas/proxyServiceLocationPath"
@@ -65,8 +66,21 @@ export function getDefaultProxyServiceFormValues({ serviceType = ProxyServiceTyp
 
 export function getProxyServiceFormValues(data: ProxyService) {
     const values = {
-        ...data,
+        serviceType: data.serviceType,
+        sourceAddress: data.sourceAddress,
+        httpPort: data.httpPort,
+        httpsPort: data.httpsPort,
+        targetProtocol: data.targetProtocol,
+        targetHost: data.targetHost,
+        targetPort: data.targetPort,
         locations: getProxyServiceLocations(data.locations),
+        websocketEnabled: data.websocketEnabled,
+        tcpForwardEnabled: data.tcpForwardEnabled,
+        udpForwardEnabled: data.udpForwardEnabled,
+        enabled: data.enabled,
+        httpsEnabled: data.httpsEnabled,
+        http2HttpsEnabled: data.http2HttpsEnabled,
+        certificateId: data.certificateId ?? undefined,
         remark: data.remark || undefined,
     } as AddProxyServiceParams
 
@@ -187,112 +201,82 @@ export interface SslFormProps {
     isPortForward: boolean
 }
 
-export const ReverseProxyDetailForm: FC = () => (
-    <div>
-        <FormItem<AddProxyServiceParams> name="sourceAddress" label="访问地址" rules={[schemaToRule(proxyServiceAddressSchema)]}>
-            <Input autoComplete="off" allowClear placeholder="example.com / 192.168.1.10 / fd00::1" />
-        </FormItem>
-        <div className="grid grid-cols-2 gap-2">
-            <FormItem<AddProxyServiceParams> name="httpPort" label="HTTP 端口" rules={[schemaToRule(proxyServiceHttpPortSchema)]}>
-                <InputNumber className="w-full" min={0} max={65535} />
-            </FormItem>
-            <FormItem<AddProxyServiceParams> name="httpsPort" label="HTTPS 端口" rules={[schemaToRule(proxyServicePortSchema)]}>
-                <InputNumber className="w-full" min={1} max={65535} />
-            </FormItem>
-        </div>
-        <FormItem<AddProxyServiceParams> label="路径规则" required>
-            <Form.List name="locations">
-                {(fields, { add, remove }) => (
-                    <div className="flex flex-col gap-3">
-                        {fields.map((field, index) => (
-                            <div key={field.key} className="rounded-md border border-slate-200 bg-slate-50 p-3">
-                                <div className="mb-3 flex items-center justify-between gap-2">
-                                    <span className="text-sm font-medium text-slate-700">{index === 0 ? "Location" : `Location ${index + 1}`}</span>
-                                    <Button
-                                        danger
-                                        type="text"
-                                        size="small"
-                                        disabled={fields.length <= 1}
-                                        icon={<IconTrash size={16} />}
-                                        onClick={() => remove(field.name)}
-                                    />
-                                </div>
-                                <div className="grid grid-cols-1 gap-2 md:grid-cols-[minmax(200px,1fr)_160px]">
-                                    <FormItem name={[field.name, "locationPath"]} label="Location" rules={[schemaToRule(proxyServiceLocationPathSchema)]}>
-                                        <Input autoComplete="off" allowClear placeholder="/path" />
-                                    </FormItem>
-                                    <FormItem name={[field.name, "targetProtocol"]} label="转发协议">
-                                        <Select
-                                            options={[
-                                                { label: "HTTP", value: ProxyTargetProtocol.HTTP },
-                                                { label: "HTTPS", value: ProxyTargetProtocol.HTTPS },
-                                            ]}
-                                        />
-                                    </FormItem>
-                                </div>
-                                <div className="grid grid-cols-1 gap-2 md:grid-cols-[minmax(240px,1.6fr)_172px_minmax(188px,1.4fr)]">
-                                    <FormItem name={[field.name, "targetHost"]} label="转发主机 / IP" rules={[schemaToRule(proxyServiceAddressSchema)]}>
-                                        <Input autoComplete="off" allowClear placeholder="10.0.0.1" />
-                                    </FormItem>
-                                    <FormItem name={[field.name, "targetPort"]} label="转发端口" rules={[schemaToRule(proxyServicePortSchema)]}>
-                                        <InputNumber className="w-full" min={1} max={65535} />
-                                    </FormItem>
-                                    <FormItem name={[field.name, "targetPath"]} label="转发路径" rules={[schemaToRule(proxyServiceTargetPathSchema)]}>
-                                        <Input autoComplete="off" allowClear placeholder="/path/" />
-                                    </FormItem>
-                                </div>
-                            </div>
-                        ))}
-                        <Button type="dashed" icon={<IconPlus size={16} />} onClick={() => add(getDefaultProxyServiceLocationFormValues())}>
-                            添加路径规则
-                        </Button>
-                    </div>
-                )}
-            </Form.List>
-        </FormItem>
-        <div className="grid grid-cols-3 gap-2">
-            <FormItem<AddProxyServiceParams> name="websocketEnabled" label="WebSocket" valuePropName="checked">
-                <Switch />
-            </FormItem>
-            <FormItem<AddProxyServiceParams> name="httpsEnabled" label="HTTPS" valuePropName="checked">
-                <Switch />
-            </FormItem>
-            <FormItem<AddProxyServiceParams> name="http2HttpsEnabled" label="HTTP 跳转" valuePropName="checked">
-                <Switch />
-            </FormItem>
-        </div>
-    </div>
-)
-
-export const PortForwardDetailForm: FC = () => {
+export const ReverseProxyDetailForm: FC = () => {
     const httpsEnabled = Form.useWatch("httpsEnabled")
 
     return (
         <div>
-            {httpsEnabled && (
+            {!httpsEnabled && (
                 <FormItem<AddProxyServiceParams> name="sourceAddress" label="访问地址" rules={[schemaToRule(proxyServiceAddressSchema)]}>
-                    <Input autoComplete="off" allowClear placeholder="实际连接 wss 的域名或 IP" />
+                    <Input autoComplete="off" allowClear placeholder="example.com / 192.168.1.10 / fd00::1" />
                 </FormItem>
             )}
-            <FormItem<AddProxyServiceParams> name="httpPort" label="入站端口" rules={[schemaToRule(proxyServicePortSchema)]}>
-                <InputNumber className="w-full" min={1} max={65535} placeholder="eg: 8080" />
-            </FormItem>
-            <div className="grid grid-cols-[1fr_194px] gap-2">
-                <FormItem<AddProxyServiceParams> name="targetHost" label="转发主机" rules={[schemaToRule(proxyServiceAddressSchema)]}>
-                    <Input autoComplete="off" allowClear placeholder="example.com or 10.0.0.1 or 2001:db8::1" />
+            <div className="grid grid-cols-2 gap-2">
+                <FormItem<AddProxyServiceParams> name="httpPort" label="HTTP 端口" rules={[schemaToRule(proxyServiceHttpPortSchema)]}>
+                    <InputNumber className="w-full" min={0} max={65535} />
                 </FormItem>
-                <FormItem<AddProxyServiceParams> name="targetPort" label="转发端口" rules={[schemaToRule(proxyServicePortSchema)]}>
-                    <InputNumber className="w-full" min={1} max={65535} placeholder="eg: 8081" />
+                <FormItem<AddProxyServiceParams> name="httpsPort" label="HTTPS 端口" rules={[schemaToRule(proxyServicePortSchema)]}>
+                    <InputNumber className="w-full" min={1} max={65535} />
                 </FormItem>
             </div>
+            <FormItem<AddProxyServiceParams> label="路径规则" required>
+                <Form.List name="locations">
+                    {(fields, { add, remove }) => (
+                        <div className="flex flex-col gap-3">
+                            {fields.map((field, index) => (
+                                <div key={field.key} className="rounded-md border border-slate-200 bg-slate-50 p-3">
+                                    <div className="mb-3 flex items-center justify-between gap-2">
+                                        <span className="text-sm font-medium text-slate-700">{index === 0 ? "Location" : `Location ${index + 1}`}</span>
+                                        <Button
+                                            danger
+                                            type="text"
+                                            size="small"
+                                            disabled={fields.length <= 1}
+                                            icon={<IconTrash size={16} />}
+                                            onClick={() => remove(field.name)}
+                                        />
+                                    </div>
+                                    <div className="grid grid-cols-1 gap-2 md:grid-cols-[minmax(200px,1fr)_160px]">
+                                        <FormItem name={[field.name, "locationPath"]} label="Location" rules={[schemaToRule(proxyServiceLocationPathSchema)]}>
+                                            <Input autoComplete="off" allowClear placeholder="/path" />
+                                        </FormItem>
+                                        <FormItem name={[field.name, "targetProtocol"]} label="转发协议">
+                                            <Select
+                                                options={[
+                                                    { label: "HTTP", value: ProxyTargetProtocol.HTTP },
+                                                    { label: "HTTPS", value: ProxyTargetProtocol.HTTPS },
+                                                ]}
+                                            />
+                                        </FormItem>
+                                    </div>
+                                    <div className="grid grid-cols-1 gap-2 md:grid-cols-[minmax(240px,1.6fr)_172px_minmax(188px,1.4fr)]">
+                                        <FormItem name={[field.name, "targetHost"]} label="转发主机 / IP" rules={[schemaToRule(proxyServiceAddressSchema)]}>
+                                            <Input autoComplete="off" allowClear placeholder="10.0.0.1" />
+                                        </FormItem>
+                                        <FormItem name={[field.name, "targetPort"]} label="转发端口" rules={[schemaToRule(proxyServicePortSchema)]}>
+                                            <InputNumber className="w-full" min={1} max={65535} />
+                                        </FormItem>
+                                        <FormItem name={[field.name, "targetPath"]} label="转发路径" rules={[schemaToRule(proxyServiceTargetPathSchema)]}>
+                                            <Input autoComplete="off" allowClear placeholder="/path/" />
+                                        </FormItem>
+                                    </div>
+                                </div>
+                            ))}
+                            <Button type="dashed" icon={<IconPlus size={16} />} onClick={() => add(getDefaultProxyServiceLocationFormValues())}>
+                                添加路径规则
+                            </Button>
+                        </div>
+                    )}
+                </Form.List>
+            </FormItem>
             <div className="grid grid-cols-3 gap-2">
-                <FormItem<AddProxyServiceParams> name="tcpForwardEnabled" label="TCP" valuePropName="checked">
+                <FormItem<AddProxyServiceParams> name="websocketEnabled" label="WebSocket" valuePropName="checked">
                     <Switch />
                 </FormItem>
-                <FormItem<AddProxyServiceParams> name="udpForwardEnabled" label="UDP" valuePropName="checked">
+                <FormItem<AddProxyServiceParams> name="httpsEnabled" label="HTTPS" valuePropName="checked">
                     <Switch />
                 </FormItem>
-                <FormItem<AddProxyServiceParams> name="httpsEnabled" label="SSL 证书" valuePropName="checked">
+                <FormItem<AddProxyServiceParams> name="http2HttpsEnabled" label="HTTP 跳转" valuePropName="checked">
                     <Switch />
                 </FormItem>
             </div>
@@ -300,24 +284,54 @@ export const PortForwardDetailForm: FC = () => {
     )
 }
 
+export const PortForwardDetailForm: FC = () => (
+    <div>
+        <FormItem<AddProxyServiceParams> name="httpPort" label="入站端口" rules={[schemaToRule(proxyServicePortSchema)]}>
+            <InputNumber className="w-full" min={1} max={65535} placeholder="eg: 8080" />
+        </FormItem>
+        <div className="grid grid-cols-[1fr_194px] gap-2">
+            <FormItem<AddProxyServiceParams> name="targetHost" label="转发主机" rules={[schemaToRule(proxyServiceAddressSchema)]}>
+                <Input autoComplete="off" allowClear placeholder="example.com or 10.0.0.1 or 2001:db8::1" />
+            </FormItem>
+            <FormItem<AddProxyServiceParams> name="targetPort" label="转发端口" rules={[schemaToRule(proxyServicePortSchema)]}>
+                <InputNumber className="w-full" min={1} max={65535} placeholder="eg: 8081" />
+            </FormItem>
+        </div>
+        <div className="grid grid-cols-3 gap-2">
+            <FormItem<AddProxyServiceParams> name="tcpForwardEnabled" label="TCP" valuePropName="checked">
+                <Switch />
+            </FormItem>
+            <FormItem<AddProxyServiceParams> name="udpForwardEnabled" label="UDP" valuePropName="checked">
+                <Switch />
+            </FormItem>
+            <FormItem<AddProxyServiceParams> name="httpsEnabled" label="SSL 证书" valuePropName="checked">
+                <Switch />
+            </FormItem>
+        </div>
+    </div>
+)
+
 export const SslForm: FC<SslFormProps> = ({ isPortForward }) => <SslFormContent isPortForward={isPortForward} />
 
 export const SslFormContent: FC<SslFormProps> = ({ isPortForward }) => {
     const httpsEnabled = Form.useWatch("httpsEnabled")
-    const sourceAddress = Form.useWatch("sourceAddress")
-    const { data, isLoading } = useQueryCertificate({ pageSize: 1000 }, { enabled: !!httpsEnabled })
+    const certificateRequired = !!httpsEnabled
+    const { data, isLoading } = useQueryCertificate({ pageSize: 1000 }, { enabled: certificateRequired })
 
     const options = (data?.list ?? []).map(certificate => ({
         label: `${certificate.name}（${certificate.address}）`,
         value: certificate.id,
-        disabled: !!sourceAddress && certificate.address !== sourceAddress,
     }))
 
-    if (!httpsEnabled) return null
+    if (!certificateRequired) return null
 
     return (
-        <FormItem<AddProxyServiceParams> name="certificateId" label={isPortForward ? "SSL 证书" : "HTTPS 证书"}>
-            <Select loading={isLoading} allowClear showSearch={{ optionFilterProp: "label" }} options={options} placeholder="请选择已有自签证书" />
+        <FormItem<AddProxyServiceParams>
+            name="certificateId"
+            label={isPortForward ? "SSL 证书" : "HTTPS 证书"}
+            rules={[{ required: true, message: isPortForward ? "请选择 SSL 证书" : "请选择 HTTPS 证书" }, schemaToRule(certificateIdSchema)]}
+        >
+            <Select loading={isLoading} showSearch={{ optionFilterProp: "label" }} options={options} placeholder="请选择已有自签证书" />
         </FormItem>
     )
 }

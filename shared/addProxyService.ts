@@ -15,11 +15,10 @@ export const addProxyService = createSharedFn({
     filter: isAdmin,
 })(async function addProxyService(params) {
     const target = resolveProxyServiceTarget(params)
-    const sourceAddress = params.serviceType === ProxyServiceType.端口转发 ? (params.sourceAddress ?? "") : params.sourceAddress!
-    const certificate = await resolveProxyServiceCertificate({
+    const { certificate, sourceAddress } = await resolveProxyServiceCertificate({
         httpsEnabled: params.httpsEnabled,
         certificateId: params.certificateId,
-        sourceAddress,
+        sourceAddress: params.serviceType === ProxyServiceType.反向代理 ? params.sourceAddress : undefined,
     })
 
     const data = {
