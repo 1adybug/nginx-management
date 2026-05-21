@@ -8,6 +8,7 @@ import { banUser } from "@/shared/banUser"
 import { createFirstUser } from "@/shared/createFirstUser"
 import { deleteProxyService } from "@/shared/deleteProxyService"
 import { deleteUser } from "@/shared/deleteUser"
+import { downloadProxyServiceCertificate } from "@/shared/downloadProxyServiceCertificate"
 import { getProxyService } from "@/shared/getProxyService"
 import { getUser } from "@/shared/getUser"
 import { login } from "@/shared/login"
@@ -42,6 +43,7 @@ registerRoute(banUser)
 registerRoute(createFirstUser)
 registerRoute(deleteProxyService)
 registerRoute(deleteUser)
+registerRoute(downloadProxyServiceCertificate)
 registerRoute(getProxyService)
 registerRoute(getUser)
 registerRoute(login)
