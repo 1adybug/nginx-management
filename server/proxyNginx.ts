@@ -507,6 +507,7 @@ export function renderDynamicProxyLocation({ service, location }: RenderDynamicP
         corsDirectives,
         `        set $dynamic_proxy_query_name ${quoteNginxValue(location.dynamicTargetQueryName || "url")};`,
         `        set $dynamic_proxy_allow_pattern ${quoteNginxValue(location.dynamicTargetAllowPattern || "")};`,
+        "        js_header_filter dynamic_proxy.rewriteLocation;",
         "        if ($dynamic_proxy_status = 400) {",
         "            return 400 $dynamic_proxy_error;",
         "        }",
@@ -514,6 +515,7 @@ export function renderDynamicProxyLocation({ service, location }: RenderDynamicP
         "            return 403 $dynamic_proxy_error;",
         "        }",
         "        proxy_pass $dynamic_proxy_target;",
+        "        proxy_redirect off;",
         "        proxy_set_header Host $dynamic_proxy_host;",
         "        proxy_set_header X-Real-IP $remote_addr;",
         "        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;",
@@ -744,6 +746,83 @@ function parseTargetUrl(targetText) {
     };
 }
 
+function stripFragment(value) {
+    var text = String(value).trim();
+    var index = text.indexOf("#");
+
+    return index >= 0 ? text.slice(0, index) : text;
+}
+
+function resolveRedirectTarget(location, baseTarget) {
+    var targetText = stripFragment(location);
+
+    if (!targetText) {
+        return "";
+    }
+
+    if (typeof URL !== "undefined") {
+        try {
+            var url = new URL(targetText, baseTarget);
+
+            if (url.protocol === "ws:") {
+                url.protocol = "http:";
+            }
+
+            if (url.protocol === "wss:") {
+                url.protocol = "https:";
+            }
+
+            if (url.protocol !== "http:" && url.protocol !== "https:") {
+                return "";
+            }
+
+            return url.href;
+        } catch (error) {
+            return "";
+        }
+    }
+
+    var baseMatch = /^(https?):\\/\\/([^\\/?#]+)(\\/[^?#]*)?/i.exec(baseTarget);
+
+    if (!baseMatch) {
+        return "";
+    }
+
+    var baseProtocol = baseMatch[1].toLowerCase();
+    var baseHost = baseMatch[2];
+    var basePath = baseMatch[3] || "/";
+
+    if (/^https?:\\/\\//i.test(targetText)) {
+        return targetText;
+    }
+
+    if (/^wss?:\\/\\//i.test(targetText)) {
+        return targetText.replace(/^ws:/i, "http:").replace(/^wss:/i, "https:");
+    }
+
+    if (targetText.indexOf("//") === 0) {
+        return baseProtocol + ":" + targetText;
+    }
+
+    if (targetText.charAt(0) === "/") {
+        return baseProtocol + "://" + baseHost + targetText;
+    }
+
+    var slashIndex = basePath.lastIndexOf("/");
+    var directory = slashIndex >= 0 ? basePath.slice(0, slashIndex + 1) : "/";
+
+    return baseProtocol + "://" + baseHost + directory + targetText;
+}
+
+function getDynamicProxyEntryUrl(r, target) {
+    var queryName = r.variables.dynamic_proxy_query_name || "url";
+    var uri = r.variables.uri || "/";
+    var host = r.variables.http_host || r.headersIn.Host || "";
+    var scheme = r.variables.scheme || "http";
+
+    return scheme + "://" + host + uri + "?" + encodeURIComponent(queryName) + "=" + encodeURIComponent(target);
+}
+
 function parseTarget(r) {
     var queryName = r.variables.dynamic_proxy_query_name || "url";
     var rawTarget = getArg(r, queryName);
@@ -807,7 +886,29 @@ function errorMessage(r) {
     return parseTarget(r).error || "dynamic proxy error";
 }
 
-export default { status, target, host, sslName, errorMessage };
+function rewriteLocation(r) {
+    var location = r.headersOut.Location || r.headersOut.location;
+
+    if (!location || r.status < 300 || r.status >= 400) {
+        return;
+    }
+
+    var currentTarget = parseTarget(r);
+
+    if (currentTarget.status || !currentTarget.target) {
+        return;
+    }
+
+    var redirectTarget = resolveRedirectTarget(location, currentTarget.target);
+
+    if (!redirectTarget) {
+        return;
+    }
+
+    r.headersOut.Location = getDynamicProxyEntryUrl(r, redirectTarget);
+}
+
+export default { status, target, host, sslName, errorMessage, rewriteLocation };
 `
 }
 

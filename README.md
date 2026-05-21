@@ -114,6 +114,7 @@ ALIYUN_ACCESS_KEY_SECRET=""
 - IPv6 可填写 `fd00::1` 或 `[fd00::1]`，系统会统一保存为 `fd00::1`
 - 支持自定义 `Location` 路径规则、`HTTP`、`HTTPS`、自签证书、`HTTP` 跳转 `HTTPS`、`WebSocket` 转发
 - 支持动态反向代理路径规则，可通过 `url` 等 query 参数转发到请求指定的 `HTTP(S)` 或 `WebSocket` 目标地址，并可使用正则限制目标 URL
+- 动态反向代理会将上游 `Location` 重定向改写为当前反代入口，避免浏览器跳转到真实目标地址
 - 反向代理开启 `HTTPS` 时，`HTTP` 端口可填写 `0` 表示不监听 `HTTP`
 - 支持 `TCP` / `UDP` 端口转发，`SSL` 端口转发仅支持 `TCP`
 - 不支持 `Let’s Encrypt`、证书上传、高级 Nginx 配置、访问列表、缓存和限速
