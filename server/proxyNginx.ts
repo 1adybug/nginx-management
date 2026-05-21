@@ -519,7 +519,7 @@ prompt = no
 CN = ${escapeOpenSslValue(address)}
 
 [v3_req]
-keyUsage = keyEncipherment, dataEncipherment
+keyUsage = digitalSignature, keyEncipherment
 extendedKeyUsage = serverAuth
 subjectAltName = @alt_names
 
