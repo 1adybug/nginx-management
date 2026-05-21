@@ -136,7 +136,14 @@ const Page: FC = () => {
             sorter: true,
             sortOrder: getSortOrder(query, "sourceAddress"),
             render(value, record) {
-                if (record.serviceType === ProxyServiceType.端口转发) return `端口 ${record.httpPort}`
+                if (record.serviceType === ProxyServiceType.端口转发) {
+                    return (
+                        <div className="flex flex-col items-center">
+                            <span>端口 {record.httpPort}</span>
+                            {value && <span className="text-xs text-slate-500">{value}</span>}
+                        </div>
+                    )
+                }
 
                 return (
                     <div className="flex flex-col items-center">
