@@ -54,14 +54,16 @@ export const updateProxyService = createSharedFn({
     const target = resolveProxyServiceTarget({
         serviceType: nextProxyService.serviceType,
         targetProtocol: nextProxyService.targetProtocol,
-        targetHost: nextProxyService.targetHost,
-        targetPort: nextProxyService.targetPort,
+        targetHost: nextProxyService.targetHost ?? undefined,
+        targetPort: nextProxyService.targetPort ?? undefined,
         locations,
     })
 
     const data = {
         ...params,
         ...target,
+        targetHost: target.targetHost ?? null,
+        targetPort: target.targetPort ?? null,
         sourceAddress,
         certificateId: certificate?.id ?? null,
     }

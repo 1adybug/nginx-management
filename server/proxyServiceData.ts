@@ -1,6 +1,6 @@
 import { InputJsonValue } from "@/prisma/generated/internal/prismaNamespace"
 
-import { ProxyServiceLocationsParams } from "@/schemas/proxyServiceLocation"
+import { isStaticProxyServiceLocation, ProxyServiceLocationsParams } from "@/schemas/proxyServiceLocation"
 import { ProxyServiceType } from "@/schemas/proxyServiceType"
 import { ProxyTargetProtocol } from "@/schemas/proxyTargetProtocol"
 
@@ -16,8 +16,8 @@ export interface ResolveProxyServiceTargetParams {
 
 export interface ResolvedProxyServiceTarget {
     targetProtocol: string
-    targetHost: string
-    targetPort: number
+    targetHost?: string
+    targetPort?: number
     locations: InputJsonValue
 }
 
@@ -29,14 +29,25 @@ export function resolveProxyServiceTarget({
     locations = [],
 }: ResolveProxyServiceTargetParams): ResolvedProxyServiceTarget {
     if (serviceType === ProxyServiceType.反向代理) {
-        const location = locations[0]
-        if (!location) throw new ClientError("反向代理必须至少配置一条路径规则")
+        if (locations.length <= 0) throw new ClientError("反向代理必须至少配置一条路径规则")
+
+        const location = locations.find(isStaticProxyServiceLocation)
+
+        if (!location) {
+            return {
+                targetProtocol: ProxyTargetProtocol.HTTP,
+                locations: locations as unknown as InputJsonValue,
+            }
+        }
+
+        if (!location.targetHost) throw new ClientError("静态路径规则的转发主机不能为空")
+        if (!location.targetPort) throw new ClientError("静态路径规则的转发端口不能为空")
 
         return {
-            targetProtocol: location.targetProtocol,
+            targetProtocol: location.targetProtocol ?? ProxyTargetProtocol.HTTP,
             targetHost: location.targetHost,
             targetPort: location.targetPort,
-            locations: locations as InputJsonValue,
+            locations: locations as unknown as InputJsonValue,
         }
     }
 

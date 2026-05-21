@@ -95,7 +95,7 @@ ALIYUN_ACCESS_KEY_SECRET=""
 - 短信设置：是否在服务端系统日志中打印验证码，默认开启
 - 限流设置：是否启用全局限流
 - 自动备份：备份开关、备份频率、保留数量、日志保留时长、S3 / 兼容对象存储配置
-- Nginx 设置：是否自动应用 Nginx 配置、执行 Nginx 时使用的命令
+- Nginx 设置：是否自动应用 Nginx 配置、执行 Nginx 时使用的命令、动态反向代理使用的 DNS resolver
 
 说明：
 
@@ -113,6 +113,7 @@ ALIYUN_ACCESS_KEY_SECRET=""
 - 支持域名、IPv4、IPv6 作为访问地址和目标地址
 - IPv6 可填写 `fd00::1` 或 `[fd00::1]`，系统会统一保存为 `fd00::1`
 - 支持自定义 `Location` 路径规则、`HTTP`、`HTTPS`、自签证书、`HTTP` 跳转 `HTTPS`、`WebSocket` 转发
+- 支持动态反向代理路径规则，可通过 `url` 等 query 参数转发到请求指定的 `HTTP(S)` 或 `WebSocket` 目标地址，并可使用正则限制目标 URL
 - 反向代理开启 `HTTPS` 时，`HTTP` 端口可填写 `0` 表示不监听 `HTTP`
 - 支持 `TCP` / `UDP` 端口转发，`SSL` 端口转发仅支持 `TCP`
 - 不支持 `Let’s Encrypt`、证书上传、高级 Nginx 配置、访问列表、缓存和限速
@@ -137,6 +138,7 @@ Docker 镜像会继续安装 Nginx，并暴露 `80`、`443`、`3000` 端口。
 - 容器入口脚本只负责准备目录、默认主配置和执行 `prisma migrate deploy`
 - 是否真正启动 Nginx，由应用在启动后根据“系统设置 / Nginx 设置”决定
 - `NGINX_COMMAND` 已迁移到系统设置，不再通过环境变量控制
+- 动态反向代理依赖 Nginx njs HTTP 模块和 DNS resolver；Docker 镜像已内置 njs，非 Docker 部署需要自行安装并加载 Nginx njs HTTP 模块
 
 IPv6 外部访问还需要宿主机和 Docker 网络启用 IPv6。
 

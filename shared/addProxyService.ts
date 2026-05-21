@@ -24,8 +24,10 @@ export const addProxyService = createSharedFn({
     const data = {
         ...params,
         ...target,
+        targetHost: target.targetHost ?? null,
+        targetPort: target.targetPort ?? null,
         sourceAddress,
-        certificateId: certificate?.id,
+        certificateId: certificate?.id ?? null,
     }
 
     await validateProxyServicePortConflict(data)

@@ -7,7 +7,7 @@ import { prisma } from "@/prisma"
 
 import { Certificate, ProxyService } from "@/prisma/generated/client"
 
-import { getProxyServiceLocations, ProxyServiceLocationParams } from "@/schemas/proxyServiceLocation"
+import { getProxyServiceLocations, isDynamicProxyServiceLocation, ProxyServiceLocationParams } from "@/schemas/proxyServiceLocation"
 import { ProxyServiceType } from "@/schemas/proxyServiceType"
 
 import { formatProxyServiceRedirectHost, formatProxyServiceUpstreamUrl, getProxyServiceAddressType, ProxyServiceAddressType } from "@/utils/proxyServiceAddress"
@@ -34,6 +34,11 @@ export interface RenderProxyServerBlockParams {
 }
 
 export interface RenderProxyLocationParams {
+    service: ProxyServiceWithCertificate
+    location: ProxyServiceLocationParams
+}
+
+export interface RenderDynamicProxyLocationParams {
     service: ProxyServiceWithCertificate
     location: ProxyServiceLocationParams
 }
@@ -93,6 +98,7 @@ export interface CreateNginxMainConfigParams {
     includeDirectoryPath: string
     streamIncludeDirectoryPath: string
     streamEnabled?: boolean
+    dynamicProxyEnabled?: boolean
 }
 
 export interface CreateOpenSslConfigParams {
@@ -110,6 +116,7 @@ export interface GenerateSelfSignedCertificateParams {
 export interface EnsureNginxMainConfigParams {
     config: ProxyNginxConfig
     streamEnabled?: boolean
+    dynamicProxyEnabled?: boolean
 }
 
 export interface StartOrReloadProxyNginxParams {
@@ -149,8 +156,10 @@ export async function applyProxyServices() {
         }))
 
         const streamEnabled = services.some(service => service.serviceType === ProxyServiceType.端口转发)
+        const dynamicProxyEnabled = services.some(service => hasDynamicProxyServiceLocation(service))
 
-        await ensureNginxMainConfig({ config, streamEnabled })
+        await ensureNginxMainConfig({ config, streamEnabled, dynamicProxyEnabled })
+        if (dynamicProxyEnabled) await writeDynamicProxyNjsScript(config)
         await validateProxyServiceCertificates(services)
 
         const tempConfDirectoryPath = resolve(config.tempDirectoryPath, `conf-${Date.now()}`)
@@ -178,6 +187,7 @@ export async function applyProxyServices() {
                     includeDirectoryPath: tempConfDirectoryPath,
                     streamIncludeDirectoryPath: tempStreamConfDirectoryPath,
                     streamEnabled,
+                    dynamicProxyEnabled,
                 }),
                 "utf8",
             )
@@ -232,7 +242,7 @@ export async function ensureProxyNginxDirectories(config: ProxyNginxConfig) {
     await mkdir(resolve(config.tempDirectoryPath, "scgi"), { recursive: true })
 }
 
-export async function ensureNginxMainConfig({ config, streamEnabled = false }: EnsureNginxMainConfigParams) {
+export async function ensureNginxMainConfig({ config, streamEnabled = false, dynamicProxyEnabled = false }: EnsureNginxMainConfigParams) {
     await writeFile(
         config.nginxConfigPath,
         createNginxMainConfig({
@@ -240,9 +250,14 @@ export async function ensureNginxMainConfig({ config, streamEnabled = false }: E
             includeDirectoryPath: config.confDirectoryPath,
             streamIncludeDirectoryPath: config.streamConfDirectoryPath,
             streamEnabled,
+            dynamicProxyEnabled,
         }),
         "utf8",
     )
+}
+
+export async function writeDynamicProxyNjsScript(config: ProxyNginxConfig) {
+    await writeFile(config.dynamicProxyScriptPath, createDynamicProxyNjsScript(), "utf8")
 }
 
 export async function generateSelfSignedCertificate({ id, address, days, certificatePath, certificateKeyPath }: GenerateSelfSignedCertificateParams) {
@@ -401,7 +416,7 @@ export function renderPortForwardServerBlock({ service, protocol }: RenderPortFo
     return [
         "server {",
         renderPortForwardListenDirectives({ port: service.httpPort, protocol, sslEnabled }),
-        `    proxy_pass ${formatProxyServiceUpstreamUrl({ address: service.targetHost, port: service.targetPort })};`,
+        `    proxy_pass ${formatProxyServiceUpstreamUrl({ address: service.targetHost || "", port: service.targetPort ?? undefined })};`,
         "    proxy_connect_timeout 10s;",
         "    proxy_timeout 1h;",
         ...keepaliveDirectives,
@@ -457,7 +472,9 @@ export function renderProxyLocations({ service }: RenderProxyLocationsParams) {
 }
 
 export function renderProxyLocation({ service, location }: RenderProxyLocationParams) {
-    const upstream = `${location.targetProtocol}://${formatProxyServiceUpstreamUrl({ address: location.targetHost, port: location.targetPort })}${formatProxyServiceTargetPath(location.targetPath)}`
+    if (isDynamicProxyServiceLocation(location)) return renderDynamicProxyLocation({ service, location })
+
+    const upstream = `${location.targetProtocol}://${formatProxyServiceUpstreamUrl({ address: location.targetHost || "", port: location.targetPort })}${formatProxyServiceTargetPath(location.targetPath || "/")}`
     const websocketDirectives = service.websocketEnabled
         ? ["        proxy_http_version 1.1;", "        proxy_set_header Upgrade $http_upgrade;", "        proxy_set_header Connection $connection_upgrade;"]
         : []
@@ -472,6 +489,38 @@ export function renderProxyLocation({ service, location }: RenderProxyLocationPa
         "        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;",
         "        proxy_set_header X-Forwarded-Proto $scheme;",
         "        proxy_set_header X-Forwarded-Host $host;",
+        ...websocketDirectives,
+        "    }",
+    ]
+        .filter(Boolean)
+        .join("\n")
+}
+
+export function renderDynamicProxyLocation({ service, location }: RenderDynamicProxyLocationParams) {
+    const corsDirectives = renderProxyCorsDirectives({ service })
+    const websocketDirectives = service.websocketEnabled
+        ? ["        proxy_http_version 1.1;", "        proxy_set_header Upgrade $http_upgrade;", "        proxy_set_header Connection $connection_upgrade;"]
+        : []
+
+    return [
+        `    location ${location.locationPath} {`,
+        corsDirectives,
+        `        set $dynamic_proxy_query_name ${quoteNginxValue(location.dynamicTargetQueryName || "url")};`,
+        `        set $dynamic_proxy_allow_pattern ${quoteNginxValue(location.dynamicTargetAllowPattern || "")};`,
+        "        if ($dynamic_proxy_status = 400) {",
+        "            return 400;",
+        "        }",
+        "        if ($dynamic_proxy_status = 403) {",
+        "            return 403;",
+        "        }",
+        "        proxy_pass $dynamic_proxy_target;",
+        "        proxy_set_header Host $dynamic_proxy_host;",
+        "        proxy_set_header X-Real-IP $remote_addr;",
+        "        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;",
+        "        proxy_set_header X-Forwarded-Proto $scheme;",
+        "        proxy_set_header X-Forwarded-Host $host;",
+        "        proxy_ssl_server_name on;",
+        "        proxy_ssl_name $dynamic_proxy_ssl_name;",
         ...websocketDirectives,
         "    }",
     ]
@@ -511,12 +560,29 @@ export function getProxyServiceServerNames(address: string) {
     return [address, `[${address}]`]
 }
 
-export function createNginxMainConfig({ config, includeDirectoryPath, streamIncludeDirectoryPath, streamEnabled = false }: CreateNginxMainConfigParams) {
+export function createNginxMainConfig({
+    config,
+    includeDirectoryPath,
+    streamIncludeDirectoryPath,
+    streamEnabled = false,
+    dynamicProxyEnabled = false,
+}: CreateNginxMainConfigParams) {
     const streamBlock = streamEnabled
         ? `
 stream {
     include ${toNginxPath(streamIncludeDirectoryPath)}/*.conf;
 }
+`
+        : ""
+    const dynamicProxyBlock = dynamicProxyEnabled
+        ? `
+    js_path ${toNginxPath(config.dataDirectoryPath)};
+    js_import dynamic_proxy from dynamic-proxy.js;
+    js_set $dynamic_proxy_status dynamic_proxy.status;
+    js_set $dynamic_proxy_target dynamic_proxy.target;
+    js_set $dynamic_proxy_host dynamic_proxy.host;
+    js_set $dynamic_proxy_ssl_name dynamic_proxy.sslName;
+    resolver ${config.dnsResolver};
 `
         : ""
 
@@ -544,10 +610,102 @@ http {
         default upgrade;
         "" close;
     }
+${dynamicProxyBlock}
 
     include ${toNginxPath(includeDirectoryPath)}/*.conf;
 }
 ${streamBlock}`
+}
+
+export function createDynamicProxyNjsScript() {
+    return `function getArg(r, name) {
+    var args = r.args || {};
+    var value = args[name];
+
+    if (Array.isArray(value)) {
+        return value[0];
+    }
+
+    return value;
+}
+
+function getSslName(url) {
+    var hostname = url.hostname || "";
+
+    if (hostname.charAt(0) === "[" && hostname.charAt(hostname.length - 1) === "]") {
+        return hostname.slice(1, -1);
+    }
+
+    return hostname;
+}
+
+function parseTarget(r) {
+    var queryName = r.variables.dynamic_proxy_query_name || "url";
+    var rawTarget = getArg(r, queryName);
+
+    if (rawTarget === undefined || rawTarget === null || String(rawTarget).trim() === "") {
+        return { status: 400 };
+    }
+
+    try {
+        var targetText = String(rawTarget).trim();
+        var url = new URL(targetText);
+
+        if (url.protocol !== "http:" && url.protocol !== "https:" && url.protocol !== "ws:" && url.protocol !== "wss:") {
+            return { status: 400 };
+        }
+
+        if (url.username || url.password || url.hash) {
+            return { status: 400 };
+        }
+
+        var allowPattern = r.variables.dynamic_proxy_allow_pattern || "";
+
+        if (allowPattern) {
+            var regexp = new RegExp(allowPattern);
+
+            if (!regexp.test(targetText)) {
+                return { status: 403 };
+            }
+        }
+
+        if (url.protocol === "ws:") {
+            url.protocol = "http:";
+        }
+
+        if (url.protocol === "wss:") {
+            url.protocol = "https:";
+        }
+
+        return {
+            status: "",
+            target: url.href,
+            host: url.host,
+            sslName: getSslName(url),
+        };
+    } catch (error) {
+        return { status: 400 };
+    }
+}
+
+function status(r) {
+    return String(parseTarget(r).status || "");
+}
+
+function target(r) {
+    return parseTarget(r).target || "http://127.0.0.1/";
+}
+
+function host(r) {
+    return parseTarget(r).host || "";
+}
+
+function sslName(r) {
+    return parseTarget(r).sslName || "";
+}
+
+export default { status, target, host, sslName };
+`
 }
 
 export function createOpenSslConfig({ address }: CreateOpenSslConfigParams) {
@@ -575,6 +733,10 @@ ${altNameKey} = ${escapeOpenSslValue(address)}
 export function getProxyServiceCertificate(service: ProxyServiceWithCertificate) {
     if (!service.certificate) throw new Error(`代理服务 ${service.id} 已开启 HTTPS / SSL，但未选择自签证书`)
     return service.certificate
+}
+
+export function hasDynamicProxyServiceLocation(service: ProxyServiceWithCertificate) {
+    return getProxyServiceLocations(service.locations).some(location => isDynamicProxyServiceLocation(location))
 }
 
 export async function testProxyNginxConfig({ config, nginxConfigPath }: TestProxyNginxConfigParams) {

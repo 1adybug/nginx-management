@@ -60,8 +60,8 @@ model ProxyService {
     httpPort          Int          @default(80)
     httpsPort         Int          @default(443)
     targetProtocol    String       @default("http")
-    targetHost        String
-    targetPort        Int
+    targetHost        String?
+    targetPort        Int?
     locations         Json         @default("[]")
     websocketEnabled  Boolean      @default(true)
     corsEnabled       Boolean      @default(false)

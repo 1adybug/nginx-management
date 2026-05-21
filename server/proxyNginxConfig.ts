@@ -7,6 +7,7 @@ import { getCachedSystemSettingValue, normalizeBooleanValue } from "@/server/sys
 export interface ProxyNginxConfig {
     applyEnabled: boolean
     nginxCommand: string
+    dnsResolver: string
     dataDirectoryPath: string
     confDirectoryPath: string
     streamConfDirectoryPath: string
@@ -14,6 +15,7 @@ export interface ProxyNginxConfig {
     logDirectoryPath: string
     tempDirectoryPath: string
     nginxConfigPath: string
+    dynamicProxyScriptPath: string
     lockFilePath: string
 }
 
@@ -23,6 +25,7 @@ export function getProxyNginxConfig() {
     const config: ProxyNginxConfig = {
         applyEnabled: getProxyNginxApplyEnabled(),
         nginxCommand: getProxyNginxCommand(),
+        dnsResolver: getProxyNginxDnsResolver(),
         dataDirectoryPath,
         confDirectoryPath: resolve(dataDirectoryPath, "conf.d"),
         streamConfDirectoryPath: resolve(dataDirectoryPath, "stream.d"),
@@ -30,6 +33,7 @@ export function getProxyNginxConfig() {
         logDirectoryPath: resolve(dataDirectoryPath, "logs"),
         tempDirectoryPath: resolve(dataDirectoryPath, "tmp"),
         nginxConfigPath: resolve(dataDirectoryPath, "nginx.conf"),
+        dynamicProxyScriptPath: resolve(dataDirectoryPath, "dynamic-proxy.js"),
         lockFilePath: resolve(dataDirectoryPath, "proxy-service.lock"),
     }
 
@@ -51,5 +55,14 @@ export function getProxyNginxCommand() {
     } catch (error) {
         console.error("[proxy-service] 读取 Nginx 命令设置失败，使用默认值", error)
         return "nginx"
+    }
+}
+
+export function getProxyNginxDnsResolver() {
+    try {
+        return getCachedSystemSettingValue(SystemSettingKey.NginxDNS解析器).trim() || "1.1.1.1 8.8.8.8 valid=300s ipv6=off"
+    } catch (error) {
+        console.error("[proxy-service] 读取 Nginx DNS 解析器设置失败，使用默认值", error)
+        return "1.1.1.1 8.8.8.8 valid=300s ipv6=off"
     }
 }

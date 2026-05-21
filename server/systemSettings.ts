@@ -65,11 +65,20 @@ const durationSchema = z
     .toLowerCase()
     .regex(/^(\d+)\s*(m|min|minute|minutes|h|hour|hours|d|day|days|w|week|weeks)$/, { message: "格式应类似 365d、24h 或 60m" })
 
+const NginxResolverPattern = new RegExp("^[A-Za-z0-9_.:\\[\\]\\s=-]+$")
+
 const domainSchema = z
     .string({ message: "无效的域名" })
     .trim()
     .min(1, { message: "域名不能为空" })
     .regex(/^[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/, { message: "域名格式不正确" })
+
+const nginxResolverSchema = z
+    .string({ message: "无效的 Nginx DNS 解析器" })
+    .trim()
+    .min(1, { message: "Nginx DNS 解析器不能为空" })
+    .max(200, { message: "Nginx DNS 解析器不能超过 200 个字符" })
+    .refine(value => NginxResolverPattern.test(value), { message: "Nginx DNS 解析器只能包含地址、空格和 resolver 参数" })
 
 function createSystemSettingTable() {
     return prisma
@@ -271,6 +280,7 @@ export function createPublicSystemSetting({ definition, value }: CreatePublicSys
 
 export function normalizeSystemSettingValue({ definition, value, currentValue }: NormalizeSystemSettingValueParams) {
     try {
+        if (definition.key === SystemSettingKey.NginxDNS解析器) return nginxResolverSchema.parse(String(value))
         if (definition.kind === SystemSettingValueKind.密钥) return normalizeSecretValue({ value, currentValue })
         if (definition.kind === SystemSettingValueKind.布尔) return normalizeBooleanValue(value) ? "1" : "0"
         if (definition.kind === SystemSettingValueKind.可选布尔) return normalizeOptionalBooleanValue(value)

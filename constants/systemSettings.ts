@@ -45,6 +45,7 @@ export const SystemSettingKey = {
     自动备份S3PathStyle: "AUTO_BACKUP_S3_FORCE_PATH_STYLE",
     自动应用Nginx配置: "NGINX_PROXY_APPLY_ENABLED",
     Nginx命令: "NGINX_COMMAND",
+    NginxDNS解析器: "NGINX_DNS_RESOLVER",
 } as const
 
 export type SystemSettingKey = (typeof SystemSettingKey)[keyof typeof SystemSettingKey]
@@ -302,6 +303,16 @@ export const SystemSettingDefinitions: SystemSettingDefinition[] = [
         description: "用于执行 nginx -t、reload、quit 的命令路径或命令名。",
         defaultValue: "nginx",
         placeholder: "nginx",
+        required: true,
+    },
+    {
+        key: SystemSettingKey.NginxDNS解析器,
+        group: SystemSettingGroupKey.Nginx,
+        kind: SystemSettingValueKind.文本,
+        label: "Nginx DNS 解析器",
+        description: "动态反向代理解析目标域名时使用的 resolver 参数。",
+        defaultValue: "1.1.1.1 8.8.8.8 valid=300s ipv6=off",
+        placeholder: "1.1.1.1 8.8.8.8 valid=300s ipv6=off",
         required: true,
     },
 ]

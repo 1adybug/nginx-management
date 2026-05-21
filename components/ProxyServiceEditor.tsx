@@ -1,4 +1,4 @@
-import { ComponentProps, FC, useEffect } from "react"
+import { ComponentProps, FC, Fragment, useEffect } from "react"
 
 import { IconPlus, IconTrash } from "@tabler/icons-react"
 import { Button, Form, Input, InputNumber, Modal, Select, Switch } from "antd"
@@ -17,8 +17,14 @@ import { ProxyService } from "@/prisma/generated/client"
 import { AddProxyServiceParams, defaultProxyServiceHttpPort, defaultProxyServiceHttpsPort } from "@/schemas/addProxyService"
 import { certificateIdSchema } from "@/schemas/certificateId"
 import { proxyServiceAddressSchema } from "@/schemas/proxyServiceAddress"
-import { getProxyServiceLocations, ProxyServiceLocationParams } from "@/schemas/proxyServiceLocation"
+import {
+    dynamicProxyServiceTargetAllowPatternSchema,
+    dynamicProxyServiceTargetQueryNameSchema,
+    getProxyServiceLocations,
+    ProxyServiceLocationParams,
+} from "@/schemas/proxyServiceLocation"
 import { proxyServiceLocationPathSchema } from "@/schemas/proxyServiceLocationPath"
+import { ProxyServiceLocationTargetMode } from "@/schemas/proxyServiceLocationTargetMode"
 import { proxyServiceHttpPortSchema, proxyServicePortSchema } from "@/schemas/proxyServicePort"
 import { proxyServiceTargetPathSchema } from "@/schemas/proxyServiceTargetPath"
 import { ProxyServiceType } from "@/schemas/proxyServiceType"
@@ -38,10 +44,12 @@ export interface GetDefaultProxyServiceFormValuesParams {
 export function getDefaultProxyServiceLocationFormValues(): ProxyServiceLocationParams {
     return {
         locationPath: "/",
+        targetMode: ProxyServiceLocationTargetMode.静态,
         targetProtocol: ProxyTargetProtocol.HTTP,
         targetHost: "",
         targetPort: 80,
         targetPath: "/",
+        dynamicTargetQueryName: "url",
     }
 }
 
@@ -72,8 +80,8 @@ export function getProxyServiceFormValues(data: ProxyService) {
         httpPort: data.httpPort,
         httpsPort: data.httpsPort,
         targetProtocol: data.targetProtocol,
-        targetHost: data.targetHost,
-        targetPort: data.targetPort,
+        targetHost: data.targetHost ?? undefined,
+        targetPort: data.targetPort ?? undefined,
         locations: getProxyServiceLocations(data.locations),
         websocketEnabled: data.websocketEnabled,
         corsEnabled: data.corsEnabled,
@@ -242,26 +250,77 @@ export const ReverseProxyDetailForm: FC = () => {
                                         <FormItem name={[field.name, "locationPath"]} label="Location" rules={[schemaToRule(proxyServiceLocationPathSchema)]}>
                                             <Input autoComplete="off" allowClear placeholder="/path" />
                                         </FormItem>
-                                        <FormItem name={[field.name, "targetProtocol"]} label="转发协议">
+                                        <FormItem name={[field.name, "targetMode"]} label="目标模式" rules={[{ required: true, message: "请选择目标模式" }]}>
                                             <Select
                                                 options={[
-                                                    { label: "HTTP", value: ProxyTargetProtocol.HTTP },
-                                                    { label: "HTTPS", value: ProxyTargetProtocol.HTTPS },
+                                                    { label: "静态目标", value: ProxyServiceLocationTargetMode.静态 },
+                                                    { label: "动态 URL", value: ProxyServiceLocationTargetMode.动态 },
                                                 ]}
                                             />
                                         </FormItem>
                                     </div>
-                                    <div className="grid grid-cols-1 gap-2 md:grid-cols-[minmax(240px,1.6fr)_172px_minmax(188px,1.4fr)]">
-                                        <FormItem name={[field.name, "targetHost"]} label="转发主机 / IP" rules={[schemaToRule(proxyServiceAddressSchema)]}>
-                                            <Input autoComplete="off" allowClear placeholder="10.0.0.1" />
-                                        </FormItem>
-                                        <FormItem name={[field.name, "targetPort"]} label="转发端口" rules={[schemaToRule(proxyServicePortSchema)]}>
-                                            <InputNumber className="w-full" min={1} max={65535} />
-                                        </FormItem>
-                                        <FormItem name={[field.name, "targetPath"]} label="转发路径" rules={[schemaToRule(proxyServiceTargetPathSchema)]}>
-                                            <Input autoComplete="off" allowClear placeholder="/path/" />
-                                        </FormItem>
-                                    </div>
+                                    <FormItem<AddProxyServiceParams> noStyle shouldUpdate>
+                                        {form => {
+                                            const targetMode = form.getFieldValue(["locations", field.name, "targetMode"])
+
+                                            if (targetMode === ProxyServiceLocationTargetMode.动态) {
+                                                return (
+                                                    <div className="grid grid-cols-1 gap-2 md:grid-cols-[180px_minmax(260px,1fr)]">
+                                                        <FormItem
+                                                            name={[field.name, "dynamicTargetQueryName"]}
+                                                            label="URL 参数名"
+                                                            rules={[schemaToRule(dynamicProxyServiceTargetQueryNameSchema)]}
+                                                        >
+                                                            <Input autoComplete="off" allowClear placeholder="url" />
+                                                        </FormItem>
+                                                        <FormItem
+                                                            name={[field.name, "dynamicTargetAllowPattern"]}
+                                                            label="允许 URL 正则"
+                                                            rules={[schemaToRule(dynamicProxyServiceTargetAllowPatternSchema)]}
+                                                        >
+                                                            <Input autoComplete="off" allowClear placeholder="^https://example\\.com/" />
+                                                        </FormItem>
+                                                    </div>
+                                                )
+                                            }
+
+                                            return (
+                                                <Fragment>
+                                                    <div className="grid grid-cols-1 gap-2 md:grid-cols-[minmax(240px,1.6fr)_172px_minmax(188px,1.4fr)]">
+                                                        <FormItem
+                                                            name={[field.name, "targetHost"]}
+                                                            label="转发主机 / IP"
+                                                            rules={[schemaToRule(proxyServiceAddressSchema)]}
+                                                        >
+                                                            <Input autoComplete="off" allowClear placeholder="10.0.0.1" />
+                                                        </FormItem>
+                                                        <FormItem
+                                                            name={[field.name, "targetPort"]}
+                                                            label="转发端口"
+                                                            rules={[schemaToRule(proxyServicePortSchema)]}
+                                                        >
+                                                            <InputNumber className="w-full" min={1} max={65535} />
+                                                        </FormItem>
+                                                        <FormItem
+                                                            name={[field.name, "targetPath"]}
+                                                            label="转发路径"
+                                                            rules={[schemaToRule(proxyServiceTargetPathSchema)]}
+                                                        >
+                                                            <Input autoComplete="off" allowClear placeholder="/path/" />
+                                                        </FormItem>
+                                                    </div>
+                                                    <FormItem name={[field.name, "targetProtocol"]} className="!mb-0" label="转发协议">
+                                                        <Select
+                                                            options={[
+                                                                { label: "HTTP", value: ProxyTargetProtocol.HTTP },
+                                                                { label: "HTTPS", value: ProxyTargetProtocol.HTTPS },
+                                                            ]}
+                                                        />
+                                                    </FormItem>
+                                                </Fragment>
+                                            )
+                                        }}
+                                    </FormItem>
                                 </div>
                             ))}
                             <Button type="dashed" icon={<IconPlus size={16} />} onClick={() => add(getDefaultProxyServiceLocationFormValues())}>
