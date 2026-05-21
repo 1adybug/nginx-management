@@ -265,32 +265,41 @@ export const ReverseProxyDetailForm: FC = () => (
     </div>
 )
 
-export const PortForwardDetailForm: FC = () => (
-    <div>
-        <FormItem<AddProxyServiceParams> name="httpPort" label="入站端口" rules={[schemaToRule(proxyServicePortSchema)]}>
-            <InputNumber className="w-full" min={1} max={65535} placeholder="eg: 8080" />
-        </FormItem>
-        <div className="grid grid-cols-[1fr_194px] gap-2">
-            <FormItem<AddProxyServiceParams> name="targetHost" label="转发主机" rules={[schemaToRule(proxyServiceAddressSchema)]}>
-                <Input autoComplete="off" allowClear placeholder="example.com or 10.0.0.1 or 2001:db8::1" />
+export const PortForwardDetailForm: FC = () => {
+    const httpsEnabled = Form.useWatch("httpsEnabled")
+
+    return (
+        <div>
+            {httpsEnabled && (
+                <FormItem<AddProxyServiceParams> name="sourceAddress" label="访问地址" rules={[schemaToRule(proxyServiceAddressSchema)]}>
+                    <Input autoComplete="off" allowClear placeholder="实际连接 wss 的域名或 IP" />
+                </FormItem>
+            )}
+            <FormItem<AddProxyServiceParams> name="httpPort" label="入站端口" rules={[schemaToRule(proxyServicePortSchema)]}>
+                <InputNumber className="w-full" min={1} max={65535} placeholder="eg: 8080" />
             </FormItem>
-            <FormItem<AddProxyServiceParams> name="targetPort" label="转发端口" rules={[schemaToRule(proxyServicePortSchema)]}>
-                <InputNumber className="w-full" min={1} max={65535} placeholder="eg: 8081" />
-            </FormItem>
+            <div className="grid grid-cols-[1fr_194px] gap-2">
+                <FormItem<AddProxyServiceParams> name="targetHost" label="转发主机" rules={[schemaToRule(proxyServiceAddressSchema)]}>
+                    <Input autoComplete="off" allowClear placeholder="example.com or 10.0.0.1 or 2001:db8::1" />
+                </FormItem>
+                <FormItem<AddProxyServiceParams> name="targetPort" label="转发端口" rules={[schemaToRule(proxyServicePortSchema)]}>
+                    <InputNumber className="w-full" min={1} max={65535} placeholder="eg: 8081" />
+                </FormItem>
+            </div>
+            <div className="grid grid-cols-3 gap-2">
+                <FormItem<AddProxyServiceParams> name="tcpForwardEnabled" label="TCP" valuePropName="checked">
+                    <Switch />
+                </FormItem>
+                <FormItem<AddProxyServiceParams> name="udpForwardEnabled" label="UDP" valuePropName="checked">
+                    <Switch />
+                </FormItem>
+                <FormItem<AddProxyServiceParams> name="httpsEnabled" label="SSL 证书" valuePropName="checked">
+                    <Switch />
+                </FormItem>
+            </div>
         </div>
-        <div className="grid grid-cols-3 gap-2">
-            <FormItem<AddProxyServiceParams> name="tcpForwardEnabled" label="TCP" valuePropName="checked">
-                <Switch />
-            </FormItem>
-            <FormItem<AddProxyServiceParams> name="udpForwardEnabled" label="UDP" valuePropName="checked">
-                <Switch />
-            </FormItem>
-            <FormItem<AddProxyServiceParams> name="httpsEnabled" label="SSL 证书" valuePropName="checked">
-                <Switch />
-            </FormItem>
-        </div>
-    </div>
-)
+    )
+}
 
 export const SslForm: FC<SslFormProps> = ({ isPortForward }) => (
     <div>

@@ -65,6 +65,9 @@ export const addProxyServiceSchema = proxyServiceInputSchema
     .refine(value => value.serviceType !== ProxyServiceType.端口转发 || !!value.targetHost, {
         message: "端口转发的转发主机不能为空",
     })
+    .refine(value => value.serviceType !== ProxyServiceType.端口转发 || !value.httpsEnabled || !!value.sourceAddress, {
+        message: "端口转发开启 SSL 证书时访问地址不能为空",
+    })
     .refine(value => value.serviceType !== ProxyServiceType.端口转发 || value.httpPort > 0, {
         message: "端口转发的入站端口不能为 0",
     })

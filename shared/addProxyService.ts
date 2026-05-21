@@ -18,7 +18,7 @@ export const addProxyService = createSharedFn({
     const data = {
         ...params,
         ...target,
-        sourceAddress: params.serviceType === ProxyServiceType.端口转发 ? "" : params.sourceAddress!,
+        sourceAddress: params.serviceType === ProxyServiceType.端口转发 ? (params.sourceAddress ?? "") : params.sourceAddress!,
     }
 
     await validateProxyServicePortConflict(data)

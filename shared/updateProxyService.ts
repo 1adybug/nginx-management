@@ -30,6 +30,8 @@ export const updateProxyService = createSharedFn({
     if (nextProxyService.serviceType === ProxyServiceType.反向代理 && nextProxyService.httpsEnabled && nextProxyService.httpPort === nextProxyService.httpsPort)
         throw new ClientError("HTTP 端口和 HTTPS 端口不能相同")
     if (nextProxyService.serviceType === ProxyServiceType.端口转发 && nextProxyService.httpPort <= 0) throw new ClientError("端口转发的入站端口不能为 0")
+    if (nextProxyService.serviceType === ProxyServiceType.端口转发 && nextProxyService.httpsEnabled && !nextProxyService.sourceAddress)
+        throw new ClientError("端口转发开启 SSL 证书时访问地址不能为空")
     if (nextProxyService.serviceType === ProxyServiceType.端口转发 && !nextProxyService.tcpForwardEnabled && !nextProxyService.udpForwardEnabled)
         throw new ClientError("端口转发必须至少开启 TCP 或 UDP")
     if (nextProxyService.serviceType === ProxyServiceType.端口转发 && nextProxyService.httpsEnabled && !nextProxyService.tcpForwardEnabled)
@@ -45,10 +47,20 @@ export const updateProxyService = createSharedFn({
         locations,
     })
 
+    const previousCertificateAddress = proxyService.sourceAddress || proxyService.targetHost || "localhost"
+    const nextCertificateAddress = nextProxyService.sourceAddress || nextProxyService.targetHost || "localhost"
+    const shouldResetCertificate = previousCertificateAddress !== nextCertificateAddress
+
     const data = {
         ...params,
         ...target,
-        ...(nextProxyService.serviceType === ProxyServiceType.端口转发 ? { sourceAddress: "" } : {}),
+        ...(shouldResetCertificate
+            ? {
+                  certificatePath: null,
+                  certificateKeyPath: null,
+                  certificateExpiresAt: null,
+              }
+            : {}),
     }
 
     await validateProxyServicePortConflict({
