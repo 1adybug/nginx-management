@@ -3,7 +3,7 @@ import { createUseQuery } from "soda-tanstack-query"
 
 import { getProxyServiceAction } from "@/actions/getProxyService"
 
-import { ProxyServiceIdParams } from "@/schemas/proxyServiceId"
+import type { ProxyServiceIdParams } from "@/schemas/proxyServiceId"
 
 export const getProxyServiceClient = createRequestFn(getProxyServiceAction)
 

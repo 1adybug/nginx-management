@@ -13,33 +13,40 @@
 
 ## 环境变量
 
-项目将启动、构建、认证核心配置，以及首次登录前就必须可用的默认邮箱域名和短信通道配置放在 `.env` 或部署平台环境变量中。验证码日志打印、限流、用户资料开关、自动备份和 Nginx 运行控制等配置请登录后台后在“系统设置”页面维护。
+项目将启动、构建、认证核心配置、格数账号平台 OAuth Client 配置，以及首次登录前就必须可用的默认邮箱域名和短信通道配置放在 `.env` 或部署平台环境变量中。验证码日志打印、限流、用户资料开关、自动备份和 Nginx 运行控制等配置请登录后台后在“系统设置”页面维护。
 
 说明：
 
 - 以 `NEXT_PUBLIC_` 开头的变量会暴露给浏览器，本项目当前无需额外暴露业务配置
 - `NODE_ENV` 由运行命令和框架控制，一般不需要手动设置
 - `BETTER_AUTH_SECRET` 在生产环境是强制项，未配置会导致服务启动失败；开发环境会使用仅本地可用的兜底值
+- 格数账号平台登录由环境变量配置，因为 Better Auth 的 `genericOAuth` Provider 配置在当前版本中是启动时静态配置
 - 默认邮箱域名、短信通道和密钥不会进入系统设置，避免首次进入系统时因无法登录而无法配置基础能力
 - 系统设置中的“短信设置”只控制是否在服务端系统日志中打印验证码
 - 系统设置中的配置不读取同名环境变量，首次初始化时只写入代码默认值
 
 ### 变量清单
 
-| 变量名                        | 必填 | 说明                                            | 示例 / 默认值                 |
-| ----------------------------- | ---- | ----------------------------------------------- | ----------------------------- |
-| `COOKIE_PREFIX`               | 是   | 登录相关 Cookie 前缀                            | `geshu`                       |
-| `BETTER_AUTH_SECRET`          | 是   | Better Auth 签名密钥                            | `your_better_auth_secret`     |
-| `BETTER_AUTH_URL`             | 按需 | 服务端 Better Auth 基础地址                     | `https://example.com`         |
-| `NEXT_PUBLIC_BETTER_AUTH_URL` | 按需 | 客户端 Better Auth 基础地址                     | `https://example.com`         |
-| `NEXT_OUTPUT`                 | 否   | Next 构建输出模式                               | `standalone` / `export`       |
-| `NEXT_TELEMETRY_DISABLED`     | 否   | 是否关闭 Next 遥测上报                          | `1`                           |
-| `REDIS_URL`                   | 按需 | Redis 地址，仅在你手动接入 Redis 限流存储时使用 | `redis://127.0.0.1:6379`      |
-| `DEFAULT_EMAIL_DOMAIN`        | 否   | 手机号注册时生成临时邮箱所使用的域名            | `example.com`                 |
-| `IS_INTRANET`                 | 否   | 是否使用内网短信通道                            | `0`                           |
-| `QJP_SMS_URL`                 | 按需 | 内网短信服务地址                                | `http://sms.example.com/send` |
-| `ALIYUN_ACCESS_KEY_ID`        | 按需 | 阿里云短信 AccessKey ID                         | `your_access_key_id`          |
-| `ALIYUN_ACCESS_KEY_SECRET`    | 按需 | 阿里云短信 AccessKey Secret                     | `your_access_key_secret`      |
+| 变量名                          | 必填 | 说明                                    | 示例 / 默认值                     |
+| ------------------------------- | ---- | --------------------------------------- | --------------------------------- |
+| `COOKIE_PREFIX`                 | 是   | 登录相关 Cookie 前缀                    | `geshu`                           |
+| `BETTER_AUTH_SECRET`            | 是   | Better Auth 签名密钥                    | `your_better_auth_secret`         |
+| `BETTER_AUTH_URL`               | 按需 | 服务端 Better Auth 基础地址             | `https://example.com`             |
+| `NEXT_PUBLIC_BETTER_AUTH_URL`   | 按需 | 客户端 Better Auth 基础地址             | `https://example.com`             |
+| `GESHU_OAUTH_LOGIN_ENABLED`     | 否   | 是否启用格数账号平台登录                | `1`                               |
+| `GESHU_OAUTH_ISSUER`            | 按需 | 格数账号平台地址或 OpenID Configuration | `https://auth.example.com`        |
+| `GESHU_OAUTH_CLIENT_ID`         | 按需 | 格数账号平台 OAuth Client ID            | `your_client_id`                  |
+| `GESHU_OAUTH_CLIENT_SECRET`     | 按需 | 格数账号平台 OAuth Client Secret        | `your_client_secret`              |
+| `GESHU_OAUTH_ALLOW_CREATE_USER` | 否   | 手机号未匹配本地用户时是否创建普通用户  | `0`                               |
+| `NEXT_OUTPUT`                   | 否   | Next 构建输出模式                       | `standalone` / `export`           |
+| `NEXT_TELEMETRY_DISABLED`       | 否   | 是否关闭 Next 遥测上报                  | `1`                               |
+| `REDIS_URL`                     | 按需 | Redis 地址（仅接入 Redis 限流存储时用） | `redis://127.0.0.1:6379`          |
+| `TRUSTED_CLIENT_IP_HEADER`      | 按需 | 指定可信反向代理写入的真实客户端 IP 头  | `x-client-ip` / `x-forwarded-for` |
+| `DEFAULT_EMAIL_DOMAIN`          | 否   | 手机号注册时生成临时邮箱所使用的域名    | `example.com`                     |
+| `IS_INTRANET`                   | 否   | 是否使用内网短信通道                    | `0`                               |
+| `QJP_SMS_URL`                   | 按需 | 内网短信服务地址                        | `http://sms.example.com`          |
+| `ALIYUN_ACCESS_KEY_ID`          | 按需 | 阿里云短信 AccessKey ID                 | `your_access_key_id`              |
+| `ALIYUN_ACCESS_KEY_SECRET`      | 按需 | 阿里云短信 AccessKey Secret             | `your_access_key_secret`          |
 
 ### 推荐的本地 `.env` 示例
 
@@ -53,12 +60,22 @@ BETTER_AUTH_URL=""
 # 客户端可选（未配置时使用当前域名）
 NEXT_PUBLIC_BETTER_AUTH_URL=""
 
+# 格数账号平台登录
+GESHU_OAUTH_LOGIN_ENABLED="1"
+GESHU_OAUTH_ISSUER="https://auth.example.com"
+GESHU_OAUTH_CLIENT_ID="your_client_id"
+GESHU_OAUTH_CLIENT_SECRET="your_client_secret"
+GESHU_OAUTH_ALLOW_CREATE_USER="0"
+
 # 构建与运行
 NEXT_OUTPUT="standalone"
 NEXT_TELEMETRY_DISABLED="1"
 
 # 可选：仅在你启用 Redis 限流存储时使用
 REDIS_URL="redis://127.0.0.1:6379"
+
+# 可选：不配置时默认读取 x-client-ip 或 x-forwarded-for
+TRUSTED_CLIENT_IP_HEADER=""
 
 # 临时邮箱域名
 DEFAULT_EMAIL_DOMAIN="example.com"
@@ -82,6 +99,21 @@ ALIYUN_ACCESS_KEY_SECRET=""
 1. 浏览器当前域名 `window.location.origin`
 2. `NEXT_PUBLIC_BETTER_AUTH_URL`
 3. 开发环境兜底 `http://localhost:3000`
+
+## 格数账号平台登录
+
+本项目可以作为 OAuth Client 接入 `geshu-oauth` 账号平台。账号平台后台新增 OAuth 应用时，推荐配置：
+
+- 应用主页：`BETTER_AUTH_URL`
+- 回调地址：`{BETTER_AUTH_URL}/api/auth/oauth2/callback/geshu-oauth`
+- 授权范围：`openid profile phone`
+- 授权流程：`authorization_code`
+- Token Endpoint 认证方式：`client_secret_basic`
+- PKCE：开启
+
+`GESHU_OAUTH_LOGIN_ENABLED` 默认开启。只有同时配置了 `GESHU_OAUTH_ISSUER`、`GESHU_OAUTH_CLIENT_ID` 和 `GESHU_OAUTH_CLIENT_SECRET` 后，登录页的“格数账号登录”才可用。这些 OAuth 环境变量在应用启动时读取，修改后需要重启应用。
+
+登录成功后会优先使用账号平台返回的手机号匹配本地已有用户并自动绑定 OAuth 账号。`GESHU_OAUTH_ALLOW_CREATE_USER` 默认关闭；开启后，手机号未匹配本地用户时会使用账号平台用户信息创建普通用户。
 
 ## 系统设置
 
@@ -286,14 +318,58 @@ login.rateLimit = createRateLimit({
 
 ### 函数级配置
 
-当你需要按账号、手机号等字段精细限流时，可以提供 `getKey`；如果某个函数不需要限流，也可以显式设为 `false` 或 `{ enabled: false }`。
+当你需要按账号、手机号等字段精细限流时，可以提供 `getKey`：
 
-### 全局开关
+```ts
+import { type RateLimitContext, createRateLimit } from "@/server/createRateLimit"
 
-通过“系统设置 / 限流设置 / 启用全局限流”控制全局是否启用限流。
+function getLoginRateLimitKey(context: RateLimitContext) {
+    const params = context.args[0] as LoginParams | undefined
+    const account = params?.account || "unknown-account"
+    const ip = context.ip || "unknown-ip"
+    return `login:${ip}:${account}`
+}
 
-- 开发环境默认关闭
-- 其他环境默认开启
+login.rateLimit = createRateLimit({
+    limit: 5,
+    windowMs: 60_000,
+    message: "登录尝试过于频繁，请稍后再试",
+    getKey: getLoginRateLimitKey,
+})
+```
+
+`RateLimitContext` 包含：
+
+- `action`: 当前 action 名称
+- `args`: action 参数数组
+- `user`: 当前登录用户
+- `ip`: 请求来源 IP
+
+#### 3.2 关闭某个函数的限流
+
+方式一，直接关闭：
+
+```ts
+someFn.rateLimit = false
+```
+
+方式二，使用配置对象关闭：
+
+```ts
+import { createRateLimit } from "@/server/createRateLimit"
+
+someFn.rateLimit = createRateLimit({
+    enabled: false,
+})
+```
+
+### 4. 全局开关
+
+#### 4.1 系统设置开关
+
+通过“系统设置 / 限流设置 / 启用全局限流”控制全局是否启用限流。开发环境默认关闭，其他环境默认开启。
+
+#### 4.2 运行时开关
 
 你也可以在服务端代码中动态切换：
 

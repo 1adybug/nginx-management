@@ -2,7 +2,7 @@ import { getPagination } from "deepsea-tools"
 
 import { prisma } from "@/prisma"
 
-import { CertificateOrderByWithRelationInput } from "@/prisma/generated/internal/prismaNamespace"
+import type { CertificateOrderByWithRelationInput } from "@/prisma/generated/internal/prismaNamespace"
 
 import { defaultPageNum } from "@/schemas/pageNum"
 import { defaultPageSize } from "@/schemas/pageSize"

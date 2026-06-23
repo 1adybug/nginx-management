@@ -5,16 +5,16 @@ import { promisify } from "node:util"
 
 import { prisma } from "@/prisma"
 
-import { Certificate, ProxyService } from "@/prisma/generated/client"
+import type { Certificate, ProxyService } from "@/prisma/generated/client"
 
-import { getProxyServiceLocations, isDynamicProxyServiceLocation, ProxyServiceLocationParams } from "@/schemas/proxyServiceLocation"
+import { type ProxyServiceLocationParams, getProxyServiceLocations, isDynamicProxyServiceLocation } from "@/schemas/proxyServiceLocation"
 import { ProxyServiceType } from "@/schemas/proxyServiceType"
 
 import { formatProxyServiceRedirectHost, formatProxyServiceUpstreamUrl, getProxyServiceAddressType, ProxyServiceAddressType } from "@/utils/proxyServiceAddress"
 import { formatProxyServiceTargetPath } from "@/utils/proxyServicePath"
 
 import { withFileLock } from "./autoBackupFileLock"
-import { getProxyNginxConfig, ProxyNginxConfig } from "./proxyNginxConfig"
+import { type ProxyNginxConfig, getProxyNginxConfig } from "./proxyNginxConfig"
 
 const execFileAsync = promisify(execFile)
 

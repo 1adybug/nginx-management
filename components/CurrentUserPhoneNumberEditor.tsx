@@ -1,6 +1,6 @@
 "use client"
 
-import { ChangeEvent, ComponentProps, FC, useEffect, useRef, useState } from "react"
+import { type ChangeEvent, type ComponentProps, type FC, useEffect, useRef, useState } from "react"
 
 import { Button, Form, Input, Modal } from "antd"
 import { useForm } from "antd/es/form/Form"
@@ -10,7 +10,7 @@ import { schemaToRule } from "soda-antd"
 import { useSendCurrentUserPhoneNumberOtp } from "@/hooks/useSendCurrentUserPhoneNumberOtp"
 import { useUpdateCurrentUserProfile } from "@/hooks/useUpdateCurrentUserProfile"
 
-import { User } from "@/prisma/generated/client"
+import type { User } from "@/prisma/generated/client"
 
 import { otpSchema } from "@/schemas/otp"
 import { phoneNumberParser } from "@/schemas/phoneNumber"
@@ -220,7 +220,7 @@ const CurrentUserPhoneNumberEditor: FC<CurrentUserPhoneNumberEditorProps> = ({
                             <Input autoComplete="off" allowClear />
                         </FormItem>
                         <Button
-                            className="mt-[30px] h-10 min-w-[148px] flex-none"
+                            className="mt-[30px] min-w-[148px] flex-none"
                             htmlType="button"
                             loading={isSendOldPhoneNumberOtpPending}
                             disabled={oldOtpLeft > 0 || isSendingOtp || isSubmitting}
@@ -239,7 +239,7 @@ const CurrentUserPhoneNumberEditor: FC<CurrentUserPhoneNumberEditorProps> = ({
                             <Input autoComplete="off" allowClear />
                         </FormItem>
                         <Button
-                            className="mt-[30px] h-10 min-w-[148px] flex-none"
+                            className="mt-[30px] min-w-[148px] flex-none"
                             htmlType="button"
                             loading={isSendNewPhoneNumberOtpPending}
                             disabled={newOtpLeft > 0 || isSendingOtp || isSubmitting}

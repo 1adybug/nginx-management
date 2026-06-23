@@ -1,6 +1,6 @@
 "use client"
 
-import { ComponentProps, FC, useEffect } from "react"
+import { type ComponentProps, type FC, useEffect } from "react"
 
 import { Button, Form, Input, InputNumber, Modal } from "antd"
 import { useForm } from "antd/es/form/Form"
@@ -9,7 +9,7 @@ import { schemaToRule } from "soda-antd"
 
 import { useAddCertificate } from "@/hooks/useAddCertificate"
 
-import { AddCertificateParams } from "@/schemas/addCertificate"
+import type { AddCertificateParams } from "@/schemas/addCertificate"
 import { certificateNameSchema } from "@/schemas/certificateName"
 import { proxyServiceAddressSchema } from "@/schemas/proxyServiceAddress"
 import { defaultProxyServiceCertificateDays, proxyServiceCertificateDaysSchema } from "@/schemas/proxyServiceCertificateDays"

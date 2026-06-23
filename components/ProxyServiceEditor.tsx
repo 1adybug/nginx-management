@@ -1,4 +1,4 @@
-import { ComponentProps, FC, Fragment, useEffect } from "react"
+import { type ComponentProps, type FC, Fragment, useEffect } from "react"
 
 import { IconPlus, IconTrash } from "@tabler/icons-react"
 import { Button, Form, Input, InputNumber, Modal, Select, Switch } from "antd"
@@ -12,16 +12,16 @@ import { useGetProxyService } from "@/hooks/useGetProxyService"
 import { useQueryCertificate } from "@/hooks/useQueryCertificate"
 import { useUpdateProxyService } from "@/hooks/useUpdateProxyService"
 
-import { ProxyService } from "@/prisma/generated/client"
+import type { ProxyService } from "@/prisma/generated/client"
 
-import { AddProxyServiceParams, defaultProxyServiceHttpPort, defaultProxyServiceHttpsPort } from "@/schemas/addProxyService"
+import { type AddProxyServiceParams, defaultProxyServiceHttpPort, defaultProxyServiceHttpsPort } from "@/schemas/addProxyService"
 import { certificateIdSchema } from "@/schemas/certificateId"
 import { proxyServiceAddressSchema } from "@/schemas/proxyServiceAddress"
 import {
+    type ProxyServiceLocationParams,
     dynamicProxyServiceTargetAllowPatternSchema,
     dynamicProxyServiceTargetQueryNameSchema,
     getProxyServiceLocations,
-    ProxyServiceLocationParams,
 } from "@/schemas/proxyServiceLocation"
 import { proxyServiceLocationPathSchema } from "@/schemas/proxyServiceLocationPath"
 import { ProxyServiceLocationTargetMode } from "@/schemas/proxyServiceLocationTargetMode"
@@ -29,7 +29,7 @@ import { proxyServiceHttpPortSchema, proxyServicePortSchema } from "@/schemas/pr
 import { proxyServiceTargetPathSchema } from "@/schemas/proxyServiceTargetPath"
 import { ProxyServiceType } from "@/schemas/proxyServiceType"
 import { ProxyTargetProtocol } from "@/schemas/proxyTargetProtocol"
-import { UpdateProxyServiceParams } from "@/schemas/updateProxyService"
+import type { UpdateProxyServiceParams } from "@/schemas/updateProxyService"
 
 export interface ProxyServiceEditorProps extends Omit<ComponentProps<typeof Modal>, "title" | "children" | "onOk" | "onClose"> {
     id?: string

@@ -1,6 +1,6 @@
-import { InputJsonValue } from "@/prisma/generated/internal/prismaNamespace"
+import type { InputJsonValue } from "@/prisma/generated/internal/prismaNamespace"
 
-import { isStaticProxyServiceLocation, ProxyServiceLocationsParams } from "@/schemas/proxyServiceLocation"
+import { type ProxyServiceLocationsParams, isStaticProxyServiceLocation } from "@/schemas/proxyServiceLocation"
 import { ProxyServiceType } from "@/schemas/proxyServiceType"
 import { ProxyTargetProtocol } from "@/schemas/proxyTargetProtocol"
 

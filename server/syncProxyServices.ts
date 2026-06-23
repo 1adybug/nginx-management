@@ -1,6 +1,6 @@
 import { prisma } from "@/prisma"
 
-import { ProxyService } from "@/prisma/generated/client"
+import type { ProxyService } from "@/prisma/generated/client"
 
 import { ProxyServiceType } from "@/schemas/proxyServiceType"
 

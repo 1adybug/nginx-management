@@ -1,11 +1,11 @@
 "use client"
 
-import { FC, ReactNode, useEffect } from "react"
+import type { FC, ReactNode } from "react"
 
 import { AntdRegistry } from "@ant-design/nextjs-registry"
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { ConfigProvider } from "antd"
-import { MessageInstance } from "antd/es/message/interface"
+import type { MessageInstance } from "antd/es/message/interface"
 import useMessage from "antd/es/message/useMessage"
 import zhCN from "antd/locale/zh_CN"
 import dayjs from "dayjs"
@@ -37,9 +37,8 @@ declare global {
 const Registry: FC<RegistryProps> = ({ children }) => {
     const [message, context] = useMessage()
 
-    useEffect(() => {
-        globalThis.message = message
-    }, [message])
+    // eslint-disable-next-line
+    if (typeof window !== "undefined") globalThis.message = message
 
     return (
         <QueryClientProvider client={queryClient}>

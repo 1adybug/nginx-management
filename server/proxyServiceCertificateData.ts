@@ -1,6 +1,6 @@
 import { prisma } from "@/prisma"
 
-import { Certificate } from "@/prisma/generated/client"
+import type { Certificate } from "@/prisma/generated/client"
 
 import { ClientError } from "@/utils/clientError"
 

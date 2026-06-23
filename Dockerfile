@@ -13,7 +13,7 @@ WORKDIR /app
 
 # Install dependencies based on the preferred package manager
 COPY package.json ./
-RUN npm install --registry=https://registry.npmmirror.com
+RUN npm install
 
 # Rebuild the source code only when needed
 FROM base AS builder
@@ -59,7 +59,7 @@ COPY --from=deps /app/node_modules/prisma/package.json ./prisma-package.json
 RUN mkdir -p /app/data && chown -R nextjs:nodejs /app/data
 RUN setcap "cap_net_bind_service=+ep" /usr/sbin/nginx
 
-RUN npm install -g "prisma@$(node -p "require('./prisma-package.json').version")" --registry=https://registry.npmmirror.com \
+RUN npm install -g "prisma@$(node -p "require('./prisma-package.json').version")" \
     && rm ./prisma-package.json
 
 # 创建启动脚本，先以 root 执行 prisma migrate deploy，然后切换用户运行应用

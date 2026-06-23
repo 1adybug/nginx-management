@@ -1,6 +1,6 @@
-import { NextRequest, NextResponse } from "next/server"
+import { type NextRequest, NextResponse } from "next/server"
 
-import { createRouteFn, OriginalResponseFn, RouteBodyType, RouteHandler } from "@/server/createResponseFn"
+import { type OriginalResponseFn, type RouteBodyType, type RouteHandler, createRouteFn } from "@/server/createResponseFn"
 
 import { addCertificate } from "@/shared/addCertificate"
 import { addProxyService } from "@/shared/addProxyService"
@@ -16,6 +16,7 @@ import { getUser } from "@/shared/getUser"
 import { login } from "@/shared/login"
 import { queryCertificate } from "@/shared/queryCertificate"
 import { queryErrorLog } from "@/shared/queryErrorLog"
+import { queryGeshuOAuthLoginStatus } from "@/shared/queryGeshuOAuthLoginStatus"
 import { queryOperationLog } from "@/shared/queryOperationLog"
 import { queryProxyService } from "@/shared/queryProxyService"
 import { querySystemSettings } from "@/shared/querySystemSettings"
@@ -54,6 +55,7 @@ registerRoute(getUser)
 registerRoute(login)
 registerRoute(queryCertificate)
 registerRoute(queryErrorLog)
+registerRoute(queryGeshuOAuthLoginStatus)
 registerRoute(queryOperationLog)
 registerRoute(queryProxyService)
 registerRoute(querySystemSettings)
