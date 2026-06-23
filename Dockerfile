@@ -72,11 +72,12 @@ RUN printf '%s\n' \
     'if [ ! -f /app/data/nginx/nginx.conf ]; then' \
     'cat > /app/data/nginx/nginx.conf <<'"'"'EOF'"'"'' \
     'include /etc/nginx/modules-enabled/*.conf;' \
+    'worker_processes auto;' \
     'pid /app/data/nginx/nginx.pid;' \
     'error_log /app/data/nginx/logs/error.log warn;' \
     '' \
     'events {' \
-    '    worker_connections 1024;' \
+    '    worker_connections 4096;' \
     '}' \
     '' \
     'http {' \
@@ -100,6 +101,9 @@ RUN printf '%s\n' \
     '}' \
     '' \
     'stream {' \
+    '    tcp_nodelay on;' \
+    '    ssl_session_cache shared:STREAM_SSL:10m;' \
+    '    ssl_session_timeout 10m;' \
     '    include /app/data/nginx/stream.d/*.conf;' \
     '}' \
     'EOF' \

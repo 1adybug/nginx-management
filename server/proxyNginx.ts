@@ -419,6 +419,7 @@ export function renderPortForwardServerBlock({ service, protocol }: RenderPortFo
         `    proxy_pass ${formatProxyServiceUpstreamUrl({ address: service.targetHost || "", port: service.targetPort ?? undefined })};`,
         "    proxy_connect_timeout 10s;",
         "    proxy_timeout 1h;",
+        "    proxy_buffer_size 128k;",
         ...keepaliveDirectives,
         ...sslDirectives,
         "}",
@@ -572,6 +573,9 @@ export function createNginxMainConfig({
     const streamBlock = streamEnabled
         ? `
 stream {
+    tcp_nodelay on;
+    ssl_session_cache shared:STREAM_SSL:10m;
+    ssl_session_timeout 10m;
     include ${toNginxPath(streamIncludeDirectoryPath)}/*.conf;
 }
 `
@@ -590,11 +594,12 @@ stream {
         : ""
 
     return `include /etc/nginx/modules-enabled/*.conf;
+worker_processes auto;
 pid ${toNginxPath(config.dataDirectoryPath)}/nginx.pid;
 error_log ${toNginxPath(config.logDirectoryPath)}/error.log warn;
 
 events {
-    worker_connections 1024;
+    worker_connections 4096;
 }
 
 http {
