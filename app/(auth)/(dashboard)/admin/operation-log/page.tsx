@@ -4,7 +4,7 @@ import { type FC, useRef, useState } from "react"
 
 import { type ModalProps, type TableProps, Button, DatePicker, Form, Input, Modal, Table } from "antd"
 import FormItem from "antd/es/form/FormItem"
-import { formatTime, getEnumKey, isNonNullable, naturalParser, showTotal } from "deepsea-tools"
+import { getEnumKey, isNonNullable, naturalParser, showTotal } from "deepsea-tools"
 import { type Columns, getTimeRange, useScroll } from "soda-antd"
 import { transformState } from "soda-hooks"
 import { useQueryState } from "soda-next"
@@ -23,6 +23,7 @@ import { UserRole } from "@/schemas/userRole"
 
 import type { OperationLog } from "@/shared/queryOperationLog"
 
+import { formatDateTime } from "@/utils/formatDateTime"
 import { getSortOrder } from "@/utils/getSortOrder"
 
 function parseJson(value: string) {
@@ -186,7 +187,7 @@ const Page: FC = () => {
             sorter: true,
             sortOrder: getSortOrder(query, "createdAt"),
             render(value) {
-                return formatTime(value)
+                return formatDateTime(value)
             },
         },
     ]

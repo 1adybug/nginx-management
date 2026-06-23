@@ -17,3 +17,5 @@ export const BetterAuthSecret = process.env.BETTER_AUTH_SECRET
 export const BetterAuthUrl = process.env.BETTER_AUTH_URL
 
 export const NextPublicBetterAuthUrl = process.env.NEXT_PUBLIC_BETTER_AUTH_URL
+
+export const NextPublicTimeZone = process.env.NEXT_PUBLIC_TIME_ZONE
