@@ -11,8 +11,11 @@ import { deleteCertificate } from "@/shared/deleteCertificate"
 import { deleteProxyService } from "@/shared/deleteProxyService"
 import { deleteUser } from "@/shared/deleteUser"
 import { downloadCertificate } from "@/shared/downloadCertificate"
+import { exportUser } from "@/shared/exportUser"
 import { getProxyService } from "@/shared/getProxyService"
 import { getUser } from "@/shared/getUser"
+import { getUserImportTemplate } from "@/shared/getUserImportTemplate"
+import { importUser } from "@/shared/importUser"
 import { login } from "@/shared/login"
 import { queryCertificate } from "@/shared/queryCertificate"
 import { queryErrorLog } from "@/shared/queryErrorLog"
@@ -50,8 +53,11 @@ registerRoute(deleteCertificate)
 registerRoute(deleteProxyService)
 registerRoute(deleteUser)
 registerRoute(downloadCertificate)
+registerRoute(exportUser)
 registerRoute(getProxyService)
 registerRoute(getUser)
+registerRoute(getUserImportTemplate)
+registerRoute(importUser)
 registerRoute(login)
 registerRoute(queryCertificate)
 registerRoute(queryErrorLog)

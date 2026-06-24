@@ -1,7 +1,9 @@
 "use client"
 
-import { type FC, useRef, useState } from "react"
+import { type ChangeEvent, type FC, useRef, useState } from "react"
 
+import { IconFileExport, IconFileImport, IconFileSpreadsheet, IconPlus } from "@tabler/icons-react"
+import { useQueryClient } from "@tanstack/react-query"
 import { type TableProps, Button, DatePicker, Form, Input, Popconfirm, Table } from "antd"
 import FormItem from "antd/es/form/FormItem"
 import { getEnumKey, isNonNullable, naturalParser, showTotal } from "deepsea-tools"
@@ -25,10 +27,88 @@ import { type SortOrderParams, sortOrderSchema } from "@/schemas/sortOrder"
 import { UserRole } from "@/schemas/userRole"
 import { type UserSortByParams, userSortBySchema } from "@/schemas/userSortBy"
 
+import type { ImportUserResult } from "@/shared/importUser"
+
 import { formatDateTime } from "@/utils/formatDateTime"
 import { getSortOrder } from "@/utils/getSortOrder"
 
+interface ActionResponse<T = unknown> {
+    success: boolean
+    data?: T
+    message?: string
+}
+
+interface DownloadBlobParams {
+    blob: Blob
+    filename: string
+}
+
+interface DownloadWorkbookResponseParams {
+    response: Response
+    filename: string
+}
+
+interface DownloadBase64WorkbookParams {
+    base64: string
+    filename: string
+}
+
+function getErrorMessage(error: unknown) {
+    return error instanceof Error ? error.message : "操作失败"
+}
+
+function downloadBlob({ blob, filename }: DownloadBlobParams) {
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement("a")
+
+    link.href = url
+    link.download = filename
+    document.body.append(link)
+    link.click()
+    link.remove()
+    URL.revokeObjectURL(url)
+}
+
+async function readActionResponse<T>(response: Response) {
+    return (await response.json()) as ActionResponse<T>
+}
+
+async function downloadWorkbookResponse({ response, filename }: DownloadWorkbookResponseParams) {
+    const contentType = response.headers.get("content-type") ?? ""
+
+    if (contentType.includes("application/json")) {
+        const result = await readActionResponse(response)
+        throw new Error(result.message || "下载失败")
+    }
+
+    if (!response.ok) throw new Error("下载失败")
+
+    downloadBlob({
+        blob: await response.blob(),
+        filename,
+    })
+}
+
+function downloadBase64Workbook({ base64, filename }: DownloadBase64WorkbookParams) {
+    const binary = atob(base64)
+    const bytes = new Uint8Array(binary.length)
+
+    for (let index = 0; index < binary.length; index++) bytes[index] = binary.charCodeAt(index)
+
+    downloadBlob({
+        blob: new Blob([bytes], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }),
+        filename,
+    })
+}
+
+function getImportResultMessage(result?: ImportUserResult) {
+    if (!result) return "批量导入成功"
+    return `成功添加 ${result.successCount} 个，与现有库重复 ${result.duplicateCount} 个（用户名），信息错误 ${result.errorCount} 个。`
+}
+
 const Page: FC = () => {
+    const queryClient = useQueryClient()
+
     const [query, setQuery] = transformState(
         useQueryState({
             keys: ["id", "name", "nickname", "email", "phoneNumber"],
@@ -69,7 +149,11 @@ const Page: FC = () => {
     const [editId, setEditId] = useState<string | undefined>(undefined)
     const [banId, setBanId] = useState<string | undefined>(undefined)
     const [showEditor, setShowEditor] = useState(false)
+    const [isTemplateDownloading, setIsTemplateDownloading] = useState(false)
+    const [isExporting, setIsExporting] = useState(false)
+    const [isImporting, setIsImporting] = useState(false)
     const container = useRef<HTMLDivElement>(null)
+    const importInput = useRef<HTMLInputElement>(null)
     const { y } = useScroll(container, { paginationMargin: 32 })
     const { createdAt, updatedAt, pageNum, pageSize, ...rest } = query
 
@@ -206,6 +290,103 @@ const Page: FC = () => {
         setShowEditor(false)
     }
 
+    function onImport() {
+        importInput.current?.click()
+    }
+
+    function getExportParams() {
+        const { createdAt, updatedAt, pageNum, pageSize, ...params } = query
+
+        return {
+            ...params,
+            createdAfter: createdAt?.[0].toISOString(),
+            createdBefore: createdAt?.[1].toISOString(),
+            updatedAfter: updatedAt?.[0].toISOString(),
+            updatedBefore: updatedAt?.[1].toISOString(),
+        }
+    }
+
+    async function onDownloadTemplate() {
+        setIsTemplateDownloading(true)
+
+        try {
+            await downloadWorkbookResponse({
+                response: await fetch("/api/admin/user/template"),
+                filename: "用户导入模板.xlsx",
+            })
+        } catch (error) {
+            message.open({
+                type: "error",
+                content: getErrorMessage(error),
+            })
+        } finally {
+            setIsTemplateDownloading(false)
+        }
+    }
+
+    async function onExport() {
+        setIsExporting(true)
+
+        try {
+            await downloadWorkbookResponse({
+                response: await fetch("/api/admin/user/export", {
+                    method: "POST",
+                    body: JSON.stringify(getExportParams()),
+                }),
+                filename: "用户列表.xlsx",
+            })
+        } catch (error) {
+            message.open({
+                type: "error",
+                content: getErrorMessage(error),
+            })
+        } finally {
+            setIsExporting(false)
+        }
+    }
+
+    async function onImportFileChange(event: ChangeEvent<HTMLInputElement>) {
+        const file = event.target.files?.[0]
+        event.target.value = ""
+        if (!file) return
+
+        setIsImporting(true)
+
+        try {
+            const formData = new FormData()
+            formData.set("file", file)
+
+            const response = await fetch("/api/admin/user/import", {
+                method: "POST",
+                body: formData,
+            })
+            const result = await readActionResponse<ImportUserResult>(response)
+
+            if (!response.ok || !result.success) throw new Error(result.message || "批量导入失败")
+
+            await queryClient.invalidateQueries({ queryKey: ["query-user"] })
+
+            if (result.data?.resultWorkbookBase64) {
+                downloadBase64Workbook({
+                    base64: result.data.resultWorkbookBase64,
+                    filename: result.data.resultFilename || "用户导入结果.xlsx",
+                })
+            }
+
+            message.open({
+                type: "success",
+                content: getImportResultMessage(result.data),
+            })
+        } catch (error) {
+            message.open({
+                type: "error",
+                content: getErrorMessage(error),
+            })
+        } finally {
+            setIsImporting(false)
+        }
+    }
+
     const { data, isLoading } = useQueryUser({
         createdAfter: createdAt?.[0].toDate(),
         createdBefore: createdAt?.[1].toDate(),
@@ -219,7 +400,7 @@ const Page: FC = () => {
     const { mutateAsync: unbanUserAsync, isPending: isUnbanUserPending } = useUnbanUser()
     const { mutateAsync: deleteUserAsync, isPending: isDeleteUserPending } = useDeleteUser()
 
-    const isRequesting = isLoading || isUnbanUserPending || isDeleteUserPending
+    const isRequesting = isLoading || isUnbanUserPending || isDeleteUserPending || isTemplateDownloading || isExporting || isImporting
 
     const onChange: TableProps<User>["onChange"] = function onChange(pagination, filters, sorter, extra) {
         if (Array.isArray(sorter)) return
@@ -233,6 +414,13 @@ const Page: FC = () => {
 
     return (
         <div className="flex h-full flex-col gap-4 pt-4">
+            <input
+                ref={importInput}
+                className="hidden"
+                type="file"
+                accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                onChange={onImportFileChange}
+            />
             <div className="flex-none px-4">
                 <Form<FormParams> name="query-user-form" className="gap-y-4" layout="inline" onFinish={setQuery}>
                     <FormItem<FormParams> name="name" label="用户名">
@@ -260,9 +448,26 @@ const Page: FC = () => {
                             重置
                         </Button>
                     </FormItem>
-                    <Button className="ml-auto" color="primary" disabled={isRequesting} onClick={onAdd}>
-                        新增
-                    </Button>
+                    <div className="ml-auto flex flex-none flex-wrap gap-2">
+                        <Button
+                            htmlType="button"
+                            icon={<IconFileSpreadsheet size={16} />}
+                            disabled={isRequesting}
+                            loading={isTemplateDownloading}
+                            onClick={onDownloadTemplate}
+                        >
+                            下载模板
+                        </Button>
+                        <Button htmlType="button" icon={<IconFileImport size={16} />} disabled={isRequesting} loading={isImporting} onClick={onImport}>
+                            批量导入
+                        </Button>
+                        <Button htmlType="button" icon={<IconFileExport size={16} />} disabled={isRequesting} loading={isExporting} onClick={onExport}>
+                            批量导出
+                        </Button>
+                        <Button htmlType="button" color="primary" icon={<IconPlus size={16} />} disabled={isRequesting} onClick={onAdd}>
+                            新增
+                        </Button>
+                    </div>
                 </Form>
             </div>
             <div ref={container} className="px-4 fill-y">

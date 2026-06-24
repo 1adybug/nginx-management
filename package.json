@@ -44,6 +44,7 @@
         "soda-tailwind": "^0.0.5",
         "soda-tanstack-query": "^0.0.16",
         "source-han-sans-sc-vf": "^0.0.1",
+        "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz",
         "zod": "^4.4.3"
     },
     "devDependencies": {
