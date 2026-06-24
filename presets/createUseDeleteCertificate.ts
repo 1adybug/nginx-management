@@ -2,7 +2,7 @@ import { useId } from "react"
 
 import { withUseMutationDefaults } from "soda-tanstack-query"
 
-import { deleteCertificate } from "@/shared/deleteCertificate"
+import type { deleteCertificate } from "@/shared/deleteCertificate"
 
 export const createUseDeleteCertificate = withUseMutationDefaults<typeof deleteCertificate>(() => {
     const key = useId()

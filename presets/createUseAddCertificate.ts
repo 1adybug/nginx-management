@@ -2,7 +2,7 @@ import { useId } from "react"
 
 import { withUseMutationDefaults } from "soda-tanstack-query"
 
-import { addCertificate } from "@/shared/addCertificate"
+import type { addCertificate } from "@/shared/addCertificate"
 
 export const createUseAddCertificate = withUseMutationDefaults<typeof addCertificate>(() => {
     const key = useId()

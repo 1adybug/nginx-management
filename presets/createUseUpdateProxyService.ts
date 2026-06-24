@@ -2,7 +2,7 @@ import { useId } from "react"
 
 import { withUseMutationDefaults } from "soda-tanstack-query"
 
-import { updateProxyService } from "@/shared/updateProxyService"
+import type { updateProxyService } from "@/shared/updateProxyService"
 
 export const createUseUpdateProxyService = withUseMutationDefaults<typeof updateProxyService>(() => {
     const key = useId()

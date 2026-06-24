@@ -2,7 +2,7 @@ import { useId } from "react"
 
 import { withUseMutationDefaults } from "soda-tanstack-query"
 
-import { deleteProxyService } from "@/shared/deleteProxyService"
+import type { deleteProxyService } from "@/shared/deleteProxyService"
 
 export const createUseDeleteProxyService = withUseMutationDefaults<typeof deleteProxyService>(() => {
     const key = useId()
