@@ -97,7 +97,7 @@ export function getProxyServiceFormValues(data: ProxyService) {
     return values
 }
 
-const ProxyServiceEditor: FC<ProxyServiceEditorProps> = ({
+export const ProxyServiceEditor: FC<ProxyServiceEditorProps> = ({
     id,
     defaultServiceType = ProxyServiceType.反向代理,
     open,
@@ -399,5 +399,3 @@ export const SslFormContent: FC<SslFormProps> = ({ isPortForward }) => {
         </FormItem>
     )
 }
-
-export default ProxyServiceEditor

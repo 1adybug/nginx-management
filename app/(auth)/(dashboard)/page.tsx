@@ -10,7 +10,7 @@ import { transformState } from "soda-hooks"
 import { useQueryState } from "soda-next"
 import { z } from "zod/v4"
 
-import ProxyServiceEditor from "@/components/ProxyServiceEditor"
+import { ProxyServiceEditor } from "@/components/ProxyServiceEditor"
 
 import { useDeleteProxyService } from "@/hooks/useDeleteProxyService"
 import { useQueryProxyService } from "@/hooks/useQueryProxyService"

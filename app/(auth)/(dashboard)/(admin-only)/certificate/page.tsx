@@ -9,7 +9,7 @@ import { type Columns, getTimeRange, useScroll } from "soda-antd"
 import { transformState } from "soda-hooks"
 import { useQueryState } from "soda-next"
 
-import CertificateEditor from "@/components/CertificateEditor"
+import { CertificateEditor } from "@/components/CertificateEditor"
 
 import { useDeleteCertificate } from "@/hooks/useDeleteCertificate"
 import { useDownloadCertificate } from "@/hooks/useDownloadCertificate"

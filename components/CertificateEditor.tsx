@@ -24,7 +24,7 @@ export function getDefaultCertificateFormValues(): Partial<AddCertificateParams>
     }
 }
 
-const CertificateEditor: FC<CertificateEditorProps> = ({
+export const CertificateEditor: FC<CertificateEditorProps> = ({
     open,
     mask = { enabled: true, closable: true, blur: true },
     onClose,
@@ -102,5 +102,3 @@ const CertificateEditor: FC<CertificateEditorProps> = ({
         </Modal>
     )
 }
-
-export default CertificateEditor
