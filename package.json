@@ -19,6 +19,7 @@
         "studio:prod": "cross-env NODE_ENV=production prisma studio"
     },
     "dependencies": {
+        "@1adybug/xlsx": "^0.20.3",
         "@alicloud/dysmsapi20170525": "^4.6.0",
         "@alicloud/openapi-client": "^0.4.15",
         "@alicloud/tea-util": "^1.4.11",
@@ -34,17 +35,16 @@
         "better-auth": "^1.6.23",
         "better-sqlite3": "^12.11.1",
         "dayjs": "^1.11.21",
-        "deepsea-tools": "^5.48.3",
+        "deepsea-tools": "^5.48.4",
         "next": "^16.2.10",
         "react": "^19.2.7",
         "react-dom": "^19.2.7",
-        "soda-antd": "^1.0.34",
-        "soda-hooks": "^6.18.2",
-        "soda-next": "^0.7.36",
+        "soda-antd": "^1.0.35",
+        "soda-hooks": "^6.18.3",
+        "soda-next": "^0.7.37",
         "soda-tailwind": "^0.0.5",
         "soda-tanstack-query": "^0.0.16",
         "source-han-sans-sc-vf": "^0.0.1",
-        "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz",
         "zod": "^4.4.3"
     },
     "devDependencies": {
@@ -63,7 +63,7 @@
         "postcss-load-config": "^6.0.1",
         "prettier": "^3.9.4",
         "prisma": "^7.8.0",
-        "sdnext": "^0.0.35",
+        "sdnext": "^0.0.36",
         "tailwindcss": "^3.4.19",
         "typescript": "^6.0.3"
     },
