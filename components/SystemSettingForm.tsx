@@ -85,7 +85,7 @@ export function renderSystemSettingFormItem(setting: PublicSystemSetting, disabl
     )
 }
 
-const SystemSettingForm: FC<SystemSettingFormProps> = ({ className, ...rest }) => {
+export const SystemSettingForm: FC<SystemSettingFormProps> = ({ className, ...rest }) => {
     const [form] = useForm<SystemSettingFormData>()
     const { data, isLoading } = useQuerySystemSettings()
 
@@ -149,5 +149,3 @@ const SystemSettingForm: FC<SystemSettingFormProps> = ({ className, ...rest }) =
         </div>
     )
 }
-
-export default SystemSettingForm

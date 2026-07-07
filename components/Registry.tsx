@@ -34,7 +34,7 @@ declare global {
     var message: MessageInstance
 }
 
-const Registry: FC<RegistryProps> = ({ children }) => {
+export const Registry: FC<RegistryProps> = ({ children }) => {
     const [message, context] = useMessage()
 
     // eslint-disable-next-line
@@ -51,5 +51,3 @@ const Registry: FC<RegistryProps> = ({ children }) => {
         </QueryClientProvider>
     )
 }
-
-export default Registry
