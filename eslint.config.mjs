@@ -27,6 +27,12 @@ const eslintConfig = [
         },
     },
     {
+        files: ["**/*.{js,jsx,mjs,cjs}"],
+        rules: {
+            "@typescript-eslint/naming-convention": "off",
+        },
+    },
+    {
         files: ["shared/**/*.{js,jsx,mjs,cjs,ts,tsx,mts,cts}"],
         rules: {
             "prefer-arrow-callback": "off",

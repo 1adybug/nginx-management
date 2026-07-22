@@ -6,7 +6,5 @@ export async function register() {
 
     await startAutoBackupScheduler()
 
-    void syncProxyNginxRuntime().catch(error => {
-        console.error("[proxy-service] 启动时同步 Nginx 运行态失败", error)
-    })
+    void syncProxyNginxRuntime().catch(error => void console.error("[proxy-service] 启动时同步 Nginx 运行态失败", error))
 }
