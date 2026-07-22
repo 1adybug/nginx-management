@@ -14,7 +14,7 @@ const baseConfig = defineConfig({
     },
 })
 
-const config = [
+const eslintConfig = [
     ...baseConfig,
     {
         files: ["**/*.{ts,tsx}"],
@@ -26,6 +26,12 @@ const config = [
             },
         },
     },
+    {
+        files: ["shared/**/*.{js,jsx,mjs,cjs,ts,tsx,mts,cts}"],
+        rules: {
+            "prefer-arrow-callback": "off",
+        },
+    },
 ]
 
-export default config
+export default eslintConfig
