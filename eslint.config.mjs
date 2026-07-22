@@ -1,31 +1,10 @@
-import { createRequire } from "node:module"
+import config from "@1adybug/eslint"
 
-import { defineConfig } from "@1adybug/eslint"
-
-const require = createRequire(import.meta.url)
-const eslintRequire = createRequire(require.resolve("@1adybug/eslint"))
-const nextVitals = eslintRequire("eslint-config-next/core-web-vitals").filter(config => config.name !== "next/typescript")
-const typescriptEslint = eslintRequire("typescript-eslint")
-
-const baseConfig = defineConfig({
-    next: {
-        recommended: false,
-        extends: nextVitals,
-    },
-})
-
-const eslintConfig = [
-    ...baseConfig,
+const projectConfig = [
     {
-        files: ["**/*.{ts,tsx}"],
-        ignores: ["**/*.{js,jsx,mjs,cjs}", "**/*.d.{ts,tsx,mts,cts}"],
-        languageOptions: {
-            parser: typescriptEslint.parser,
-            parserOptions: {
-                projectService: true,
-            },
-        },
+        ignores: ["components/ui/**", "utils/shadcn.ts"],
     },
+    ...config,
     {
         files: ["**/*.{js,jsx,mjs,cjs}"],
         rules: {
@@ -40,4 +19,4 @@ const eslintConfig = [
     },
 ]
 
-export default eslintConfig
+export default projectConfig
