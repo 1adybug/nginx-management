@@ -2,7 +2,17 @@
 
 import type { FC } from "react"
 
-import { type LucideIcon, CircleUserRoundIcon, FileClockIcon, HouseIcon, SettingsIcon, ShieldAlertIcon, UsersIcon } from "lucide-react"
+import {
+    type LucideIcon,
+    CircleUserRoundIcon,
+    FileClockIcon,
+    HouseIcon,
+    ServerCogIcon,
+    SettingsIcon,
+    ShieldAlertIcon,
+    ShieldCheckIcon,
+    UsersIcon,
+} from "lucide-react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 
@@ -42,6 +52,20 @@ const accountNavs: NavItem[] = [
         href: "/profile",
         name: "个人中心",
         icon: CircleUserRoundIcon,
+    },
+]
+
+const serviceNavs: NavItem[] = [
+    {
+        href: "/",
+        name: "代理服务",
+        icon: ServerCogIcon,
+    },
+    {
+        href: "/certificate",
+        name: "自签证书",
+        icon: ShieldCheckIcon,
+        filter: isAdmin,
     },
 ]
 
@@ -123,6 +147,7 @@ export const DashboardSidebar: FC = () => {
                 <Brand classNames={{ text: "text-base" }} />
             </SidebarHeader>
             <SidebarContent>
+                <SidebarNavGroup label="Nginx 管理" navs={serviceNavs} user={user} />
                 <SidebarNavGroup label="账户" navs={accountNavs} user={user} />
                 <SidebarNavGroup label="系统管理" navs={adminNavs} user={user} />
             </SidebarContent>
@@ -140,7 +165,7 @@ export const DashboardSidebar: FC = () => {
                 <div className="grid grid-cols-2 gap-2">
                     <Link href="/" className="inline-flex h-8 items-center justify-center gap-1.5 rounded-2xl border bg-background px-3 text-sm hover:bg-muted">
                         <HouseIcon className="size-4" />
-                        公开首页
+                        代理服务
                     </Link>
                     <Logout variant="outline" />
                 </div>

@@ -4,29 +4,22 @@ import { withUseMutationDefaults } from "soda-tanstack-query"
 
 import type { addCertificate } from "@/shared/addCertificate"
 
+import { toast } from "@/utils/toast"
+
 export const createUseAddCertificate = withUseMutationDefaults<typeof addCertificate>(() => {
     const key = useId()
 
     return {
         onMutate(variables, context) {
-            message.open({
-                key,
-                type: "loading",
-                content: "生成自签证书中...",
-                duration: 0,
-            })
+            toast.loading("生成自签证书中...", { id: key })
         },
         onSuccess(data, variables, onMutateResult, context) {
             context.client.invalidateQueries({ queryKey: ["query-certificate"] })
 
-            message.open({
-                key,
-                type: "success",
-                content: "生成自签证书成功",
-            })
+            toast.success("生成自签证书成功", { id: key })
         },
         onError(error, variables, onMutateResult, context) {
-            message.destroy(key)
+            toast.dismiss(key)
         },
         onSettled(data, error, variables, onMutateResult, context) {},
     }

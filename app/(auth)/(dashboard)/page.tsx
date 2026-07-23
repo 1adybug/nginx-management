@@ -1,16 +1,27 @@
 "use client"
 
-import { type FC, useRef, useState } from "react"
+import { type FC, useEffect, useState } from "react"
 
-import { type ModalProps, type TableProps, Button, DatePicker, Form, Input, Modal, Popconfirm, Select, Table, Tag } from "antd"
-import FormItem from "antd/es/form/FormItem"
-import { formatTime, isNonNullable, showTotal } from "deepsea-tools"
-import { type Columns, useScroll } from "soda-antd"
+import { useForm } from "@tanstack/react-form"
+import type { ColumnDef, SortingState, Updater } from "@tanstack/react-table"
+import { PlusIcon } from "lucide-react"
+import Link from "next/link"
 import type { StateToQueryFnMap } from "soda-hooks"
 import { useQueryState } from "soda-next"
 import { z } from "zod/v4"
 
+import { ConfirmButton } from "@/components/ConfirmButton"
+import { DataTable } from "@/components/DataTable"
+import { DatePicker } from "@/components/DatePicker"
+import { InfoDialog } from "@/components/InfoDialog"
 import { ProxyServiceEditor } from "@/components/ProxyServiceEditor"
+
+import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
+import { Card, CardContent } from "@/components/ui/card"
+import { Field, FieldLabel } from "@/components/ui/field"
+import { Input } from "@/components/ui/input"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
 import { useDeleteProxyService } from "@/hooks/useDeleteProxyService"
 import { useQueryProxyService } from "@/hooks/useQueryProxyService"
@@ -23,13 +34,48 @@ import { pageNumParser } from "@/schemas/pageNum"
 import { pageSizeParser } from "@/schemas/pageSize"
 import { type ProxyServiceLocationParams, getProxyServiceLocations, isDynamicProxyServiceLocation } from "@/schemas/proxyServiceLocation"
 import { type ProxyServiceSortByParams, proxyServiceSortBySchema } from "@/schemas/proxyServiceSortBy"
-import { ProxyServiceType, proxyServiceTypeSchema } from "@/schemas/proxyServiceType"
-import { type SortOrderParams, sortOrderSchema } from "@/schemas/sortOrder"
+import { type ProxyServiceType, proxyServiceTypeSchema, ProxyServiceType as ProxyServiceTypeValue } from "@/schemas/proxyServiceType"
+import { sortOrderSchema } from "@/schemas/sortOrder"
 
-import { getSortOrder } from "@/utils/getSortOrder"
+import { formatDateTime } from "@/utils/formatDateTime"
 import { formatProxyServiceUpstreamUrl } from "@/utils/proxyServiceAddress"
 import { formatProxyServiceTargetPath } from "@/utils/proxyServicePath"
 import { parseQueryDate, stringifyQueryEndDate, stringifyQueryStartDate } from "@/utils/queryDate"
+
+type BooleanFilterValue = "all" | "true" | "false"
+
+type ProxyServiceTypeFilterValue = "all" | ProxyServiceType
+
+interface ProxyServiceFilterValues {
+    serviceType: ProxyServiceTypeFilterValue
+    sourceAddress: string
+    targetHost: string
+    enabled: BooleanFilterValue
+    httpsEnabled: BooleanFilterValue
+    createdAfter?: Date
+    createdBefore?: Date
+    updatedAfter?: Date
+    updatedBefore?: Date
+}
+
+export interface ProxyServiceRow extends ProxyService {
+    certificate?: Certificate
+}
+
+const booleanFilterSchema = z.enum(["all", "true", "false"])
+const proxyServiceTypeFilterSchema = z.union([z.literal("all"), proxyServiceTypeSchema])
+
+const proxyServiceFilterSchema = z.object({
+    serviceType: proxyServiceTypeFilterSchema,
+    sourceAddress: z.string(),
+    targetHost: z.string(),
+    enabled: booleanFilterSchema,
+    httpsEnabled: booleanFilterSchema,
+    createdAfter: z.union([z.custom<Date>(), z.undefined()]),
+    createdBefore: z.union([z.custom<Date>(), z.undefined()]),
+    updatedAfter: z.union([z.custom<Date>(), z.undefined()]),
+    updatedBefore: z.union([z.custom<Date>(), z.undefined()]),
+})
 
 const queryBooleanSchema = z.union([z.boolean(), z.stringbool()])
 
@@ -54,8 +100,12 @@ const queryStringifiers: StateToQueryFnMap<typeof queryParsers> = {
     updatedAfter: stringifyQueryStartDate,
 }
 
-export interface ProxyServiceRow extends ProxyService {
-    certificate?: Certificate
+function formatBooleanFilterValue(value?: boolean): BooleanFilterValue {
+    return value === undefined ? "all" : `${value}`
+}
+
+function parseBooleanFilterValue(value: BooleanFilterValue) {
+    return value === "all" ? undefined : value === "true"
 }
 
 function formatProxyServiceLocationTarget(location: ProxyServiceLocationParams) {
@@ -74,91 +124,142 @@ const Page: FC = () => {
         stringify: queryStringifiers,
     })
 
-    type FormParams = typeof query
-
-    const [editId, setEditId] = useState<string | undefined>(undefined)
-    const [defaultServiceType, setDefaultServiceType] = useState<ProxyServiceType>(ProxyServiceType.反向代理)
+    const [editId, setEditId] = useState<string>()
+    const [defaultServiceType, setDefaultServiceType] = useState<ProxyServiceType>(ProxyServiceTypeValue.反向代理)
     const [showEditor, setShowEditor] = useState(false)
-    const [info, setInfo] = useState<Pick<ModalProps, "title" | "children">>()
-    const container = useRef<HTMLDivElement>(null)
-    const { y } = useScroll(container, { paginationMargin: 32 })
-    const { createdAfter, createdBefore, updatedAfter, updatedBefore, pageNum, pageSize, ...rest } = query
+    const [lastApplyError, setLastApplyError] = useState<string>()
 
-    const { data, isLoading } = useQueryProxyService({
-        createdAfter: createdAfter?.toDate(),
-        createdBefore: createdBefore?.toDate(),
-        updatedAfter: updatedAfter?.toDate(),
-        updatedBefore: updatedBefore?.toDate(),
-        pageNum,
-        pageSize,
-        ...rest,
+    const form = useForm({
+        defaultValues: {
+            serviceType: query.serviceType ?? "all",
+            sourceAddress: query.sourceAddress ?? "",
+            targetHost: query.targetHost ?? "",
+            enabled: formatBooleanFilterValue(query.enabled),
+            httpsEnabled: formatBooleanFilterValue(query.httpsEnabled),
+            createdAfter: query.createdAfter,
+            createdBefore: query.createdBefore,
+            updatedAfter: query.updatedAfter,
+            updatedBefore: query.updatedBefore,
+        } satisfies ProxyServiceFilterValues,
+        validators: {
+            onSubmit: proxyServiceFilterSchema,
+        },
+        onSubmit({ value }) {
+            setQuery(previous => ({
+                ...previous,
+                serviceType: value.serviceType === "all" ? undefined : value.serviceType,
+                sourceAddress: value.sourceAddress.trim() || undefined,
+                targetHost: value.targetHost.trim() || undefined,
+                enabled: parseBooleanFilterValue(value.enabled),
+                httpsEnabled: parseBooleanFilterValue(value.httpsEnabled),
+                createdAfter: value.createdAfter,
+                createdBefore: value.createdBefore,
+                updatedAfter: value.updatedAfter,
+                updatedBefore: value.updatedBefore,
+                pageNum: 1,
+            }))
+        },
     })
 
-    const proxyServices = data?.list.map(service => ({
+    const { data, isLoading } = useQueryProxyService({
+        serviceType: query.serviceType,
+        sourceAddress: query.sourceAddress,
+        targetHost: query.targetHost,
+        enabled: query.enabled,
+        httpsEnabled: query.httpsEnabled,
+        createdAfter: query.createdAfter,
+        createdBefore: query.createdBefore,
+        updatedAfter: query.updatedAfter,
+        updatedBefore: query.updatedBefore,
+        pageNum: query.pageNum,
+        pageSize: query.pageSize,
+        sortBy: query.sortBy,
+        sortOrder: query.sortOrder,
+    })
+
+    const proxyServices: ProxyServiceRow[] | undefined = data?.list.map(service => ({
         ...service,
         certificate: service.certificate ?? undefined,
     }))
 
-    const { mutateAsync: updateProxyServiceAsync, isPending: isUpdateProxyServicePending } = useUpdateProxyService()
-    const { mutateAsync: deleteProxyServiceAsync, isPending: isDeleteProxyServicePending } = useDeleteProxyService()
-
+    const { mutateAsync: updateProxyService, isPending: isUpdateProxyServicePending } = useUpdateProxyService()
+    const { mutateAsync: deleteProxyService, isPending: isDeleteProxyServicePending } = useDeleteProxyService()
     const isRequesting = isLoading || isUpdateProxyServicePending || isDeleteProxyServicePending
+    const sorting: SortingState = query.sortBy ? [{ id: query.sortBy, desc: query.sortOrder === "desc" }] : []
 
-    const columns: Columns<ProxyServiceRow> = [
+    useEffect(
+        () =>
+            void form.reset({
+                serviceType: query.serviceType ?? "all",
+                sourceAddress: query.sourceAddress ?? "",
+                targetHost: query.targetHost ?? "",
+                enabled: formatBooleanFilterValue(query.enabled),
+                httpsEnabled: formatBooleanFilterValue(query.httpsEnabled),
+                createdAfter: query.createdAfter,
+                createdBefore: query.createdBefore,
+                updatedAfter: query.updatedAfter,
+                updatedBefore: query.updatedBefore,
+            }),
+        [
+            form,
+            query.createdAfter,
+            query.createdBefore,
+            query.enabled,
+            query.httpsEnabled,
+            query.serviceType,
+            query.sourceAddress,
+            query.targetHost,
+            query.updatedAfter,
+            query.updatedBefore,
+        ],
+    )
+
+    const columns: ColumnDef<ProxyServiceRow>[] = [
         {
-            title: "序号",
-            key: "index",
-            align: "center",
-            fixed: "left",
-            render(value, record, index) {
-                return (pageNum - 1) * pageSize + index + 1
-            },
+            id: "index",
+            header: "序号",
+            size: 72,
+            cell: ({ row }) => (query.pageNum - 1) * query.pageSize + row.index + 1,
         },
         {
-            title: "类型",
-            dataIndex: "serviceType",
-            align: "center",
-            fixed: "left",
-            sorter: true,
-            sortOrder: getSortOrder(query, "serviceType"),
-            render(value) {
-                return value === ProxyServiceType.端口转发 ? "端口转发" : "反向代理"
-            },
+            accessorKey: "serviceType",
+            header: "类型",
+            enableSorting: true,
+            size: 110,
+            cell: ({ row }) => (row.original.serviceType === ProxyServiceTypeValue.端口转发 ? "端口转发" : "反向代理"),
         },
         {
-            title: "入口",
-            dataIndex: "sourceAddress",
-            align: "center",
-            fixed: "left",
-            sorter: true,
-            sortOrder: getSortOrder(query, "sourceAddress"),
-            render(value, record) {
-                if (record.serviceType === ProxyServiceType.端口转发) return `端口 ${record.httpPort}`
+            accessorKey: "sourceAddress",
+            header: "入口",
+            enableSorting: true,
+            size: 220,
+            cell: ({ row }) => {
+                const service = row.original
+                if (service.serviceType === ProxyServiceTypeValue.端口转发) return `端口 ${service.httpPort}`
 
                 return (
                     <div className="flex flex-col items-center">
-                        <span>{value}</span>
-                        <span className="text-xs text-slate-500">
-                            {record.httpPort > 0 ? `HTTP ${record.httpPort}` : "HTTP 未监听"}
-                            {record.httpsEnabled ? ` / HTTPS ${record.httpsPort}` : ""}
+                        <span>{service.sourceAddress}</span>
+                        <span className="text-xs text-muted-foreground">
+                            {service.httpPort > 0 ? `HTTP ${service.httpPort}` : "HTTP 未监听"}
+                            {service.httpsEnabled ? ` / HTTPS ${service.httpsPort}` : ""}
                         </span>
                     </div>
                 )
             },
         },
         {
-            title: "目标服务",
-            dataIndex: "targetHost",
-            align: "center",
-            sorter: true,
-            sortOrder: getSortOrder(query, "targetHost"),
-            render(value, record) {
-                if (record.serviceType === ProxyServiceType.端口转发)
-                    return formatProxyServiceUpstreamUrl({ address: value || "", port: record.targetPort ?? undefined })
+            accessorKey: "targetHost",
+            header: "目标服务",
+            enableSorting: true,
+            size: 360,
+            cell: ({ row }) => {
+                const service = row.original
+                if (service.serviceType === ProxyServiceTypeValue.端口转发)
+                    return formatProxyServiceUpstreamUrl({ address: service.targetHost || "", port: service.targetPort ?? undefined })
 
-                const locations = getProxyServiceLocations(record.locations)
+                const locations = getProxyServiceLocations(service.locations)
                 const location = locations[0]
-
                 if (!location) return "未配置路径规则"
 
                 return (
@@ -166,147 +267,141 @@ const Page: FC = () => {
                         <span>
                             {location.locationPath} =&gt; {formatProxyServiceLocationTarget(location)}
                         </span>
-                        {locations.length > 1 && <span className="text-xs text-slate-500">共 {locations.length} 条路径规则</span>}
+                        {locations.length > 1 && <span className="text-xs text-muted-foreground">共 {locations.length} 条路径规则</span>}
                     </div>
                 )
             },
         },
         {
-            title: "功能",
-            dataIndex: "websocketEnabled",
-            align: "center",
-            render(value, record) {
-                if (record.serviceType === ProxyServiceType.端口转发) {
+            id: "features",
+            header: "功能",
+            size: 220,
+            cell: ({ row }) => {
+                const service = row.original
+
+                if (service.serviceType === ProxyServiceTypeValue.端口转发) {
                     return (
-                        <div className="inline-flex gap-1">
-                            <Tag color={record.tcpForwardEnabled ? "green" : "default"}>TCP</Tag>
-                            <Tag color={record.udpForwardEnabled ? "blue" : "default"}>UDP</Tag>
+                        <div className="flex gap-1">
+                            <Badge variant={service.tcpForwardEnabled ? "secondary" : "outline"}>TCP</Badge>
+                            <Badge variant={service.udpForwardEnabled ? "secondary" : "outline"}>UDP</Badge>
                         </div>
                     )
                 }
 
                 return (
-                    <div className="inline-flex flex-wrap justify-center gap-1">
-                        <Tag color={value ? "green" : "default"}>WebSocket {value ? "开启" : "关闭"}</Tag>
-                        <Tag color={record.corsEnabled ? "blue" : "default"}>{record.corsEnabled ? "关闭跨域" : "默认跨域"}</Tag>
+                    <div className="flex flex-wrap gap-1">
+                        <Badge variant={service.websocketEnabled ? "secondary" : "outline"}>WebSocket {service.websocketEnabled ? "开启" : "关闭"}</Badge>
+                        <Badge variant={service.corsEnabled ? "secondary" : "outline"}>{service.corsEnabled ? "关闭跨域" : "默认跨域"}</Badge>
                     </div>
                 )
             },
         },
         {
-            title: "HTTPS",
-            dataIndex: "httpsEnabled",
-            align: "center",
-            sorter: true,
-            sortOrder: getSortOrder(query, "httpsEnabled"),
-            render(value, record) {
-                if (record.serviceType === ProxyServiceType.端口转发) return <Tag color={value ? "blue" : "default"}>{value ? "SSL" : "无"}</Tag>
+            accessorKey: "httpsEnabled",
+            header: "HTTPS",
+            enableSorting: true,
+            size: 130,
+            cell: ({ row }) => {
+                const service = row.original
+                if (service.serviceType === ProxyServiceTypeValue.端口转发)
+                    return <Badge variant={service.httpsEnabled ? "secondary" : "outline"}>{service.httpsEnabled ? "SSL" : "无"}</Badge>
 
                 return (
                     <div className="flex flex-col items-center gap-1">
-                        <Tag color={value ? "blue" : "default"}>{value ? "开启" : "关闭"}</Tag>
-                        {value && record.http2HttpsEnabled && <span className="text-xs text-slate-500">HTTP 跳转</span>}
+                        <Badge variant={service.httpsEnabled ? "secondary" : "outline"}>{service.httpsEnabled ? "开启" : "关闭"}</Badge>
+                        {service.httpsEnabled && service.http2HttpsEnabled && <span className="text-xs text-muted-foreground">HTTP 跳转</span>}
                     </div>
                 )
             },
         },
         {
-            title: "状态",
-            dataIndex: "enabled",
-            align: "center",
-            sorter: true,
-            sortOrder: getSortOrder(query, "enabled"),
-            render(value, record) {
-                return (
-                    <Tag color={value && !record.lastApplyError ? "green" : value ? "red" : "default"}>
-                        {value ? (record.lastApplyError ? "异常" : "启用") : "停用"}
-                    </Tag>
-                )
+            accessorKey: "enabled",
+            header: "状态",
+            enableSorting: true,
+            size: 100,
+            cell: ({ row }) => {
+                const service = row.original
+                const variant = service.enabled && service.lastApplyError ? "destructive" : service.enabled ? "secondary" : "outline"
+                return <Badge variant={variant}>{service.enabled ? (service.lastApplyError ? "异常" : "启用") : "停用"}</Badge>
             },
         },
         {
-            title: "证书",
-            dataIndex: "certificateId",
-            align: "center",
-            render(value, record) {
-                if (!record.httpsEnabled) return "未开启"
-                if (!record.certificate) return "未选择"
+            accessorKey: "certificateId",
+            header: "证书",
+            size: 220,
+            cell: ({ row }) => {
+                const service = row.original
+                if (!service.httpsEnabled) return "未开启"
+                if (!service.certificate) return "未选择"
 
                 return (
                     <div className="flex flex-col items-center">
-                        <span>{record.certificate.name}</span>
-                        <span className="text-xs text-slate-500">{formatTime(record.certificate.expiresAt)}</span>
+                        <span>{service.certificate.name}</span>
+                        <span className="text-xs text-muted-foreground">{formatDateTime(service.certificate.expiresAt)}</span>
                     </div>
                 )
             },
         },
         {
-            title: "最近生效",
-            dataIndex: "lastAppliedAt",
-            align: "center",
-            render(value, record) {
-                if (record.lastApplyError) {
+            accessorKey: "lastAppliedAt",
+            header: "最近生效",
+            size: 170,
+            cell: ({ row }) => {
+                const service = row.original
+
+                if (service.lastApplyError) {
                     return (
-                        <Button
-                            size="small"
-                            color="danger"
-                            variant="text"
-                            onClick={() =>
-                                setInfo({
-                                    title: "生效错误",
-                                    children: <pre className="max-h-96 overflow-auto whitespace-pre-wrap break-all">{record.lastApplyError}</pre>,
-                                })
-                            }
-                        >
+                        <Button size="xs" variant="destructive" onClick={() => setLastApplyError(service.lastApplyError ?? undefined)}>
                             查看错误
                         </Button>
                     )
                 }
 
-                return value ? formatTime(value) : "未生效"
+                return service.lastAppliedAt ? formatDateTime(service.lastAppliedAt) : "未生效"
             },
         },
         {
-            title: "更新时间",
-            dataIndex: "updatedAt",
-            align: "center",
-            sorter: true,
-            sortOrder: getSortOrder(query, "updatedAt"),
-            render(value) {
-                return formatTime(value)
-            },
+            accessorKey: "updatedAt",
+            header: "更新时间",
+            enableSorting: true,
+            size: 180,
+            cell: ({ row }) => formatDateTime(row.original.updatedAt),
         },
         {
-            title: "操作",
-            key: "operation",
-            dataIndex: "id",
-            align: "center",
-            fixed: "right",
-            render(value, record) {
+            id: "actions",
+            header: "操作",
+            size: 230,
+            cell: ({ row }) => {
+                const service = row.original
                 return (
-                    <div className="inline-flex gap-1">
-                        <Button size="small" color="primary" variant="text" disabled={isRequesting} onClick={() => onUpdate(value)}>
+                    <div className="flex items-center gap-1">
+                        <Button size="xs" variant="ghost" disabled={isRequesting} onClick={() => onUpdate(service.id)}>
                             编辑
                         </Button>
-                        <Button
-                            size="small"
-                            color={record.enabled ? "orange" : "green"}
-                            variant="text"
-                            disabled={isRequesting}
-                            onClick={() => onToggleEnabled(record)}
-                        >
-                            {record.enabled ? "停用" : "启用"}
+                        <Button size="xs" variant="ghost" disabled={isRequesting} onClick={() => void onToggleEnabled(service)}>
+                            {service.enabled ? "停用" : "启用"}
                         </Button>
-                        {record.httpsEnabled && (
-                            <Button size="small" color="primary" variant="text" disabled={isRequesting} href="/certificate">
-                                证书
-                            </Button>
-                        )}
-                        <Popconfirm title="确认删除代理服务" description="删除后会移除对应的 Nginx 配置" onConfirm={() => deleteProxyServiceAsync(value)}>
-                            <Button size="small" color="danger" variant="text" disabled={isRequesting}>
-                                删除
-                            </Button>
-                        </Popconfirm>
+                        {service.httpsEnabled &&
+                            (isRequesting ? (
+                                <Button size="xs" variant="ghost" disabled>
+                                    证书
+                                </Button>
+                            ) : (
+                                <Button size="xs" variant="ghost" asChild>
+                                    <Link href="/certificate">证书</Link>
+                                </Button>
+                            ))}
+                        <ConfirmButton
+                            title="确认删除代理服务"
+                            description="删除后会移除对应的 Nginx 配置。"
+                            size="xs"
+                            variant="destructive"
+                            disabled={isRequesting}
+                            pending={isDeleteProxyServicePending}
+                            onConfirm={() => deleteProxyService(service.id)}
+                        >
+                            删除
+                        </ConfirmButton>
                     </div>
                 )
             },
@@ -324,123 +419,225 @@ const Page: FC = () => {
         setShowEditor(true)
     }
 
-    function onToggleEnabled(record: ProxyService) {
-        updateProxyServiceAsync({
-            id: record.id,
-            enabled: !record.enabled,
+    async function onToggleEnabled(service: ProxyService) {
+        await updateProxyService({
+            id: service.id,
+            enabled: !service.enabled,
         })
     }
 
-    function onClose() {
+    function onCloseEditor() {
         setEditId(undefined)
         setShowEditor(false)
     }
 
-    const onChange: TableProps<ProxyServiceRow>["onChange"] = function onChange(pagination, filters, sorter) {
-        if (Array.isArray(sorter)) return
+    function onSortingChange(updater: Updater<SortingState>) {
+        const nextSorting = typeof updater === "function" ? updater(sorting) : updater
+        const next = nextSorting[0]
 
-        setQuery(prev => ({
-            ...prev,
-            sortBy: sorter.field as ProxyServiceSortByParams,
-            sortOrder: (sorter.order ? sorter.order.slice(0, -3) : undefined) as SortOrderParams,
+        setQuery(previous => ({
+            ...previous,
+            sortBy: next?.id as ProxyServiceSortByParams | undefined,
+            sortOrder: next ? (next.desc ? "desc" : "asc") : undefined,
+            pageNum: 1,
+        }))
+    }
+
+    function onReset() {
+        form.reset({
+            serviceType: "all",
+            sourceAddress: "",
+            targetHost: "",
+            enabled: "all",
+            httpsEnabled: "all",
+            createdAfter: undefined,
+            createdBefore: undefined,
+            updatedAfter: undefined,
+            updatedBefore: undefined,
+        })
+
+        setQuery(previous => ({
+            ...previous,
+            serviceType: undefined,
+            sourceAddress: undefined,
+            targetHost: undefined,
+            enabled: undefined,
+            httpsEnabled: undefined,
+            createdAfter: undefined,
+            createdBefore: undefined,
+            updatedAfter: undefined,
+            updatedBefore: undefined,
+            pageNum: 1,
         }))
     }
 
     return (
-        <div className="flex h-full flex-col gap-4 pt-4">
+        <div className="space-y-6">
             <title>代理服务</title>
-            <div className="flex-none px-4">
-                <Form<FormParams> name="query-proxy-service-form" className="gap-y-4" layout="inline" onFinish={setQuery}>
-                    <FormItem<FormParams> name="serviceType" label="类型">
-                        <Select
-                            className="w-28"
-                            allowClear
-                            options={[
-                                { label: "反向代理", value: ProxyServiceType.反向代理 },
-                                { label: "端口转发", value: ProxyServiceType.端口转发 },
-                            ]}
-                        />
-                    </FormItem>
-                    <FormItem<FormParams> name="sourceAddress" label="访问地址">
-                        <Input allowClear />
-                    </FormItem>
-                    <FormItem<FormParams> name="targetHost" label="目标地址">
-                        <Input allowClear />
-                    </FormItem>
-                    <FormItem<FormParams> name="enabled" label="状态">
-                        <Select
-                            className="w-24"
-                            allowClear
-                            options={[
-                                { label: "启用", value: true },
-                                { label: "停用", value: false },
-                            ]}
-                        />
-                    </FormItem>
-                    <FormItem<FormParams> name="httpsEnabled" label="HTTPS">
-                        <Select
-                            className="w-24"
-                            allowClear
-                            options={[
-                                { label: "开启", value: true },
-                                { label: "关闭", value: false },
-                            ]}
-                        />
-                    </FormItem>
-                    <FormItem<FormParams> name="createdAfter" label="创建开始日期">
-                        <DatePicker />
-                    </FormItem>
-                    <FormItem<FormParams> name="createdBefore" label="创建结束日期">
-                        <DatePicker />
-                    </FormItem>
-                    <FormItem<FormParams> name="updatedAfter" label="更新开始日期">
-                        <DatePicker />
-                    </FormItem>
-                    <FormItem<FormParams> name="updatedBefore" label="更新结束日期">
-                        <DatePicker />
-                    </FormItem>
-                    <FormItem<FormParams>>
-                        <Button htmlType="submit" type="primary" disabled={isRequesting}>
-                            查询
-                        </Button>
-                    </FormItem>
-                    <FormItem<FormParams>>
-                        <Button htmlType="button" type="text" disabled={isRequesting} onClick={() => setQuery({} as FormParams)}>
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                <div>
+                    <h1 className="text-2xl font-semibold tracking-tight">代理服务</h1>
+                    <p className="mt-1 text-sm text-muted-foreground">管理 Nginx 反向代理、端口转发和证书关联。</p>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                    <Button disabled={isRequesting} onClick={() => onAdd(ProxyServiceTypeValue.反向代理)}>
+                        <PlusIcon />
+                        新增反向代理
+                    </Button>
+                    <Button variant="secondary" disabled={isRequesting} onClick={() => onAdd(ProxyServiceTypeValue.端口转发)}>
+                        <PlusIcon />
+                        新增端口转发
+                    </Button>
+                </div>
+            </div>
+            <Card>
+                <CardContent className="pt-6">
+                    <form
+                        className="flex flex-wrap items-end gap-3"
+                        onSubmit={event => {
+                            event.preventDefault()
+                            event.stopPropagation()
+                            void form.handleSubmit()
+                        }}
+                    >
+                        <form.Field name="serviceType">
+                            {field => (
+                                <Field className="w-full sm:w-36">
+                                    <FieldLabel>类型</FieldLabel>
+                                    <Select value={field.state.value} onValueChange={value => field.handleChange(value as ProxyServiceTypeFilterValue)}>
+                                        <SelectTrigger>
+                                            <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="all">全部</SelectItem>
+                                            <SelectItem value={ProxyServiceTypeValue.反向代理}>反向代理</SelectItem>
+                                            <SelectItem value={ProxyServiceTypeValue.端口转发}>端口转发</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                </Field>
+                            )}
+                        </form.Field>
+                        <form.Field name="sourceAddress">
+                            {field => (
+                                <Field className="w-full sm:w-48">
+                                    <FieldLabel htmlFor="proxy-service-filter-source">访问地址</FieldLabel>
+                                    <Input
+                                        id="proxy-service-filter-source"
+                                        value={field.state.value}
+                                        onChange={event => field.handleChange(event.target.value)}
+                                    />
+                                </Field>
+                            )}
+                        </form.Field>
+                        <form.Field name="targetHost">
+                            {field => (
+                                <Field className="w-full sm:w-48">
+                                    <FieldLabel htmlFor="proxy-service-filter-target">目标地址</FieldLabel>
+                                    <Input
+                                        id="proxy-service-filter-target"
+                                        value={field.state.value}
+                                        onChange={event => field.handleChange(event.target.value)}
+                                    />
+                                </Field>
+                            )}
+                        </form.Field>
+                        <form.Field name="enabled">
+                            {field => (
+                                <Field className="w-full sm:w-28">
+                                    <FieldLabel>状态</FieldLabel>
+                                    <Select value={field.state.value} onValueChange={value => field.handleChange(value as BooleanFilterValue)}>
+                                        <SelectTrigger>
+                                            <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="all">全部</SelectItem>
+                                            <SelectItem value="true">启用</SelectItem>
+                                            <SelectItem value="false">停用</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                </Field>
+                            )}
+                        </form.Field>
+                        <form.Field name="httpsEnabled">
+                            {field => (
+                                <Field className="w-full sm:w-28">
+                                    <FieldLabel>HTTPS</FieldLabel>
+                                    <Select value={field.state.value} onValueChange={value => field.handleChange(value as BooleanFilterValue)}>
+                                        <SelectTrigger>
+                                            <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="all">全部</SelectItem>
+                                            <SelectItem value="true">开启</SelectItem>
+                                            <SelectItem value="false">关闭</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                </Field>
+                            )}
+                        </form.Field>
+                        <form.Field name="createdAfter">
+                            {field => (
+                                <Field className="w-full sm:w-auto">
+                                    <FieldLabel>创建开始日期</FieldLabel>
+                                    <DatePicker value={field.state.value} onValueChange={field.handleChange} />
+                                </Field>
+                            )}
+                        </form.Field>
+                        <form.Field name="createdBefore">
+                            {field => (
+                                <Field className="w-full sm:w-auto">
+                                    <FieldLabel>创建结束日期</FieldLabel>
+                                    <DatePicker value={field.state.value} onValueChange={field.handleChange} />
+                                </Field>
+                            )}
+                        </form.Field>
+                        <form.Field name="updatedAfter">
+                            {field => (
+                                <Field className="w-full sm:w-auto">
+                                    <FieldLabel>更新开始日期</FieldLabel>
+                                    <DatePicker value={field.state.value} onValueChange={field.handleChange} />
+                                </Field>
+                            )}
+                        </form.Field>
+                        <form.Field name="updatedBefore">
+                            {field => (
+                                <Field className="w-full sm:w-auto">
+                                    <FieldLabel>更新结束日期</FieldLabel>
+                                    <DatePicker value={field.state.value} onValueChange={field.handleChange} />
+                                </Field>
+                            )}
+                        </form.Field>
+                        <form.Subscribe selector={state => [state.canSubmit, state.isSubmitting, state.isPristine]}>
+                            {([canSubmit, isSubmitting, isPristine]) => (
+                                <Button type="submit" disabled={!canSubmit || isRequesting || isSubmitting || isPristine}>
+                                    查询
+                                </Button>
+                            )}
+                        </form.Subscribe>
+                        <Button type="button" variant="ghost" disabled={isRequesting} onClick={onReset}>
                             重置
                         </Button>
-                    </FormItem>
-                    <div className="ml-auto flex gap-2">
-                        <Button color="primary" disabled={isRequesting} onClick={() => onAdd(ProxyServiceType.反向代理)}>
-                            新增反向代理
-                        </Button>
-                        <Button color="primary" variant="filled" disabled={isRequesting} onClick={() => onAdd(ProxyServiceType.端口转发)}>
-                            新增端口转发
-                        </Button>
-                    </div>
-                </Form>
-            </div>
-            <div ref={container} className="px-4 fill-y">
-                <ProxyServiceEditor id={editId} defaultServiceType={defaultServiceType} open={showEditor} width={840} onClose={onClose} />
-                <Modal open={isNonNullable(info)} onCancel={() => setInfo(undefined)} width={800} footer={null} {...info} />
-                <Table<ProxyServiceRow>
-                    columns={columns}
-                    dataSource={proxyServices}
-                    loading={isLoading}
-                    rowKey="id"
-                    onChange={onChange}
-                    scroll={{ x: "max-content", y }}
-                    pagination={{
-                        current: pageNum,
-                        pageSize,
-                        total: data?.total,
-                        showTotal,
-                        showSizeChanger: true,
-                        onChange(page, size) {
-                            setQuery(prev => ({ ...prev, pageNum: page, pageSize: size }))
-                        },
-                    }}
-                />
-            </div>
+                    </form>
+                </CardContent>
+            </Card>
+            <DataTable
+                columns={columns}
+                columnPinning={{ left: ["index", "serviceType", "sourceAddress"], right: ["actions"] }}
+                columnSizingKey="proxy-service"
+                data={proxyServices}
+                loading={isLoading}
+                pageNum={query.pageNum}
+                pageSize={query.pageSize}
+                sorting={sorting}
+                total={data?.total}
+                getRowId={service => service.id}
+                onPageChange={(pageNum, pageSize) => setQuery(previous => ({ ...previous, pageNum, pageSize }))}
+                onSortingChange={onSortingChange}
+            />
+            <ProxyServiceEditor id={editId} defaultServiceType={defaultServiceType} open={showEditor} onClose={onCloseEditor} />
+            <InfoDialog title="生效错误" open={!!lastApplyError} wide onClose={() => setLastApplyError(undefined)}>
+                {lastApplyError}
+            </InfoDialog>
         </div>
     )
 }

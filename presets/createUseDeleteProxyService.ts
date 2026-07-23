@@ -4,30 +4,23 @@ import { withUseMutationDefaults } from "soda-tanstack-query"
 
 import type { deleteProxyService } from "@/shared/deleteProxyService"
 
+import { toast } from "@/utils/toast"
+
 export const createUseDeleteProxyService = withUseMutationDefaults<typeof deleteProxyService>(() => {
     const key = useId()
 
     return {
         onMutate(variables, context) {
-            message.open({
-                key,
-                type: "loading",
-                content: "删除代理服务中...",
-                duration: 0,
-            })
+            toast.loading("删除代理服务中...", { id: key })
         },
         onSuccess(data, variables, onMutateResult, context) {
             context.client.invalidateQueries({ queryKey: ["query-proxy-service"] })
             context.client.invalidateQueries({ queryKey: ["get-proxy-service", data.id] })
 
-            message.open({
-                key,
-                type: "success",
-                content: "删除代理服务成功",
-            })
+            toast.success("删除代理服务成功", { id: key })
         },
         onError(error, variables, onMutateResult, context) {
-            message.destroy(key)
+            toast.dismiss(key)
         },
         onSettled(data, error, variables, onMutateResult, context) {},
     }

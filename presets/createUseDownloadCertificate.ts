@@ -4,27 +4,20 @@ import { withUseMutationDefaults } from "soda-tanstack-query"
 
 import type { downloadCertificate } from "@/shared/downloadCertificate"
 
+import { toast } from "@/utils/toast"
+
 export const createUseDownloadCertificate = withUseMutationDefaults<typeof downloadCertificate>(() => {
     const key = useId()
 
     return {
         onMutate(variables, context) {
-            message.open({
-                key,
-                type: "loading",
-                content: "下载自签证书中...",
-                duration: 0,
-            })
+            toast.loading("下载自签证书中...", { id: key })
         },
         onSuccess(data, variables, onMutateResult, context) {
-            message.open({
-                key,
-                type: "success",
-                content: "下载自签证书成功",
-            })
+            toast.success("下载自签证书成功", { id: key })
         },
         onError(error, variables, onMutateResult, context) {
-            message.destroy(key)
+            toast.dismiss(key)
         },
         onSettled(data, error, variables, onMutateResult, context) {},
     }

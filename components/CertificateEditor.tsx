@@ -1,104 +1,191 @@
 "use client"
 
-import { type ComponentProps, type FC, useEffect } from "react"
+import { type FC, useEffect } from "react"
 
-import { Button, Form, Input, InputNumber, Modal } from "antd"
-import { useForm } from "antd/es/form/Form"
-import FormItem from "antd/es/form/FormItem"
-import { schemaToRule } from "soda-antd"
+import { useForm } from "@tanstack/react-form"
+import { LoaderCircleIcon } from "lucide-react"
+import type { ZodType } from "zod/v4"
+
+import { Button } from "@/components/ui/button"
+import { Dialog, DialogBody, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Field, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field"
+import { Input } from "@/components/ui/input"
+import { Textarea } from "@/components/ui/textarea"
 
 import { useAddCertificate } from "@/hooks/useAddCertificate"
 
-import type { AddCertificateParams } from "@/schemas/addCertificate"
+import { type AddCertificateParams, addCertificateParser, addCertificateSchema, optionalCertificateRemarkSchema } from "@/schemas/addCertificate"
 import { certificateNameSchema } from "@/schemas/certificateName"
 import { proxyServiceAddressSchema } from "@/schemas/proxyServiceAddress"
 import { defaultProxyServiceCertificateDays, proxyServiceCertificateDaysSchema } from "@/schemas/proxyServiceCertificateDays"
 
-export interface CertificateEditorProps extends Omit<ComponentProps<typeof Modal>, "title" | "children" | "onOk" | "onClose"> {
+import { getOnBlurValidator } from "@/utils/getOnBlurValidator"
+
+const certificateFormSchema = addCertificateSchema as ZodType<AddCertificateParams, AddCertificateParams>
+
+export interface CertificateEditorProps {
+    open?: boolean
     onClose?: () => void
 }
 
-export function getDefaultCertificateFormValues(): Partial<AddCertificateParams> {
+export function getDefaultCertificateFormValues(): AddCertificateParams {
     return {
+        name: undefined,
+        address: "",
         days: defaultProxyServiceCertificateDays,
+        remark: undefined,
     }
 }
 
-export const CertificateEditor: FC<CertificateEditorProps> = ({
-    open,
-    mask = { enabled: true, closable: true, blur: true },
-    onClose,
-    okButtonProps: { loading: okButtonLoading, ...okButtonProps } = {},
-    cancelButtonProps: { disabled: cancelButtonDisabled, ...cancelButtonProps } = {},
-    ...rest
-}) => {
-    const { enabled, closable, blur } = typeof mask === "boolean" ? { enabled: mask, closable: true, blur: true } : mask
-    const [form] = useForm<AddCertificateParams>()
-
+export const CertificateEditor: FC<CertificateEditorProps> = ({ open = false, onClose }) => {
     const { mutateAsync: addCertificate, isPending } = useAddCertificate({
         onSuccess() {
             onClose?.()
         },
     })
 
-    useEffect(() => {
-        if (!open) return
+    const form = useForm({
+        defaultValues: getDefaultCertificateFormValues(),
+        validators: {
+            onSubmit: certificateFormSchema,
+        },
+        async onSubmit({ value }) {
+            await addCertificate(addCertificateParser(value))
+        },
+    })
 
-        form.setFieldsValue(getDefaultCertificateFormValues())
-    }, [open, form])
+    useEffect(() => void form.reset(getDefaultCertificateFormValues()), [form, open])
 
-    useEffect(() => {
-        if (open) return
-
-        form.resetFields()
-    }, [open, form])
-
-    function onFinish(values: AddCertificateParams) {
-        addCertificate(values)
+    function onOpenChange(nextOpen: boolean) {
+        if (!nextOpen && !isPending) onClose?.()
     }
 
     return (
-        <Modal
-            title="生成自签证书"
-            open={open}
-            mask={{ enabled, closable: closable && !isPending, blur }}
-            onOk={() => form.submit()}
-            okButtonProps={{ loading: isPending || okButtonLoading, ...okButtonProps }}
-            cancelButtonProps={{ disabled: isPending || cancelButtonDisabled, ...cancelButtonProps }}
-            onCancel={() => onClose?.()}
-            {...rest}
-        >
-            <Form<AddCertificateParams>
-                name="certificate-editor"
-                form={form}
-                disabled={isPending}
-                labelCol={{ flex: "104px" }}
-                initialValues={getDefaultCertificateFormValues()}
-                onFinish={onFinish}
-            >
-                <FormItem<AddCertificateParams> name="name" label="证书名称" rules={[schemaToRule(certificateNameSchema.optional())]}>
-                    <Input autoComplete="off" allowClear placeholder="默认使用访问地址" />
-                </FormItem>
-                <FormItem<AddCertificateParams> name="address" label="访问地址" rules={[schemaToRule(proxyServiceAddressSchema)]}>
-                    <Input autoComplete="off" allowClear placeholder="example.com / 192.168.1.10 / fd00::1" />
-                </FormItem>
-                <FormItem<AddCertificateParams> label="证书有效期">
-                    <div className="flex items-center gap-2">
-                        <FormItem<AddCertificateParams> name="days" noStyle rules={[schemaToRule(proxyServiceCertificateDaysSchema)]}>
-                            <InputNumber className="w-full" min={1} max={36500} />
-                        </FormItem>
-                        <span className="flex-none text-slate-500">天</span>
-                    </div>
-                </FormItem>
-                <FormItem<AddCertificateParams> name="remark" label="备注">
-                    <Input.TextArea autoComplete="off" allowClear autoSize={{ minRows: 2, maxRows: 6 }} />
-                </FormItem>
-                <FormItem<AddCertificateParams> noStyle>
-                    <Button className="!hidden" htmlType="submit">
-                        提交
+        <Dialog open={open} onOpenChange={onOpenChange}>
+            <DialogContent showCloseButton={!isPending}>
+                <DialogHeader>
+                    <DialogTitle>生成自签证书</DialogTitle>
+                    <DialogDescription>填写证书地址、有效期与可选备注。</DialogDescription>
+                </DialogHeader>
+                <DialogBody>
+                    <form
+                        id="certificate-editor-form"
+                        onSubmit={event => {
+                            event.preventDefault()
+                            event.stopPropagation()
+                            void form.handleSubmit()
+                        }}
+                    >
+                        <FieldGroup>
+                            <form.Field name="name" validators={{ onBlur: getOnBlurValidator(certificateNameSchema.optional()) }}>
+                                {field => {
+                                    const isInvalid = field.state.meta.isTouched && !field.state.meta.isValid
+
+                                    return (
+                                        <Field data-invalid={isInvalid}>
+                                            <FieldLabel htmlFor={field.name}>证书名称</FieldLabel>
+                                            <Input
+                                                id={field.name}
+                                                name={field.name}
+                                                autoComplete="off"
+                                                disabled={isPending}
+                                                placeholder="默认使用访问地址"
+                                                aria-invalid={isInvalid}
+                                                value={field.state.value ?? ""}
+                                                onBlur={field.handleBlur}
+                                                onChange={event => field.handleChange(event.target.value || undefined)}
+                                            />
+                                            {isInvalid && <FieldError errors={field.state.meta.errors} />}
+                                        </Field>
+                                    )
+                                }}
+                            </form.Field>
+                            <form.Field name="address" validators={{ onBlur: getOnBlurValidator(proxyServiceAddressSchema) }}>
+                                {field => {
+                                    const isInvalid = field.state.meta.isTouched && !field.state.meta.isValid
+
+                                    return (
+                                        <Field data-invalid={isInvalid}>
+                                            <FieldLabel htmlFor={field.name}>访问地址</FieldLabel>
+                                            <Input
+                                                id={field.name}
+                                                name={field.name}
+                                                autoComplete="off"
+                                                disabled={isPending}
+                                                placeholder="example.com / 192.168.1.10 / fd00::1"
+                                                aria-invalid={isInvalid}
+                                                value={field.state.value}
+                                                onBlur={field.handleBlur}
+                                                onChange={event => field.handleChange(event.target.value)}
+                                            />
+                                            {isInvalid && <FieldError errors={field.state.meta.errors} />}
+                                        </Field>
+                                    )
+                                }}
+                            </form.Field>
+                            <form.Field name="days" validators={{ onBlur: getOnBlurValidator(proxyServiceCertificateDaysSchema) }}>
+                                {field => {
+                                    const isInvalid = field.state.meta.isTouched && !field.state.meta.isValid
+
+                                    return (
+                                        <Field data-invalid={isInvalid}>
+                                            <FieldLabel htmlFor={field.name}>证书有效期（天）</FieldLabel>
+                                            <Input
+                                                id={field.name}
+                                                name={field.name}
+                                                type="number"
+                                                min={1}
+                                                max={36500}
+                                                disabled={isPending}
+                                                aria-invalid={isInvalid}
+                                                value={field.state.value}
+                                                onBlur={field.handleBlur}
+                                                onChange={event => field.handleChange(Number(event.target.value))}
+                                            />
+                                            {isInvalid && <FieldError errors={field.state.meta.errors} />}
+                                        </Field>
+                                    )
+                                }}
+                            </form.Field>
+                            <form.Field name="remark" validators={{ onBlur: getOnBlurValidator(optionalCertificateRemarkSchema) }}>
+                                {field => {
+                                    const isInvalid = field.state.meta.isTouched && !field.state.meta.isValid
+
+                                    return (
+                                        <Field data-invalid={isInvalid}>
+                                            <FieldLabel htmlFor={field.name}>备注</FieldLabel>
+                                            <Textarea
+                                                id={field.name}
+                                                name={field.name}
+                                                autoComplete="off"
+                                                disabled={isPending}
+                                                aria-invalid={isInvalid}
+                                                value={field.state.value ?? ""}
+                                                onBlur={field.handleBlur}
+                                                onChange={event => field.handleChange(event.target.value || undefined)}
+                                            />
+                                            {isInvalid && <FieldError errors={field.state.meta.errors} />}
+                                        </Field>
+                                    )
+                                }}
+                            </form.Field>
+                        </FieldGroup>
+                    </form>
+                </DialogBody>
+                <DialogFooter>
+                    <Button type="button" variant="outline" disabled={isPending} onClick={onClose}>
+                        取消
                     </Button>
-                </FormItem>
-            </Form>
-        </Modal>
+                    <form.Subscribe selector={state => [state.canSubmit, state.isSubmitting, state.isPristine]}>
+                        {([canSubmit, isSubmitting, isPristine]) => (
+                            <Button type="submit" form="certificate-editor-form" disabled={!canSubmit || isPending || isSubmitting || isPristine}>
+                                {(isPending || isSubmitting) && <LoaderCircleIcon className="animate-spin" />}
+                                生成证书
+                            </Button>
+                        )}
+                    </form.Subscribe>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
     )
 }

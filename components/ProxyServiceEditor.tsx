@@ -1,11 +1,19 @@
-import { type ComponentProps, type FC, Fragment, useEffect } from "react"
+"use client"
 
-import { IconPlus, IconTrash } from "@tabler/icons-react"
-import { Button, Form, Input, InputNumber, Modal, Select, Switch } from "antd"
-import { useForm } from "antd/es/form/Form"
-import FormItem from "antd/es/form/FormItem"
+import { type FC, useEffect } from "react"
+
+import { useForm } from "@tanstack/react-form"
 import { isNonNullable } from "deepsea-tools"
-import { schemaToRule } from "soda-antd"
+import { LoaderCircleIcon, PlusIcon, Trash2Icon } from "lucide-react"
+import type { ZodType } from "zod/v4"
+
+import { Button } from "@/components/ui/button"
+import { Dialog, DialogBody, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Field, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field"
+import { Input } from "@/components/ui/input"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Switch } from "@/components/ui/switch"
+import { Textarea } from "@/components/ui/textarea"
 
 import { useAddProxyService } from "@/hooks/useAddProxyService"
 import { useGetProxyService } from "@/hooks/useGetProxyService"
@@ -14,7 +22,15 @@ import { useUpdateProxyService } from "@/hooks/useUpdateProxyService"
 
 import type { ProxyService } from "@/prisma/generated/client"
 
-import { type AddProxyServiceParams, defaultProxyServiceHttpPort, defaultProxyServiceHttpsPort } from "@/schemas/addProxyService"
+import {
+    type AddProxyServiceParams,
+    addProxyServiceParser,
+    addProxyServiceSchema,
+    defaultProxyServiceHttpPort,
+    defaultProxyServiceHttpsPort,
+    optionalProxyServiceAddressSchema,
+    optionalProxyServiceRemarkSchema,
+} from "@/schemas/addProxyService"
 import { certificateIdSchema } from "@/schemas/certificateId"
 import { proxyServiceAddressSchema } from "@/schemas/proxyServiceAddress"
 import {
@@ -24,16 +40,26 @@ import {
     getProxyServiceLocations,
 } from "@/schemas/proxyServiceLocation"
 import { proxyServiceLocationPathSchema } from "@/schemas/proxyServiceLocationPath"
-import { ProxyServiceLocationTargetMode } from "@/schemas/proxyServiceLocationTargetMode"
+import { ProxyServiceLocationTargetMode, proxyServiceLocationTargetModeSchema } from "@/schemas/proxyServiceLocationTargetMode"
 import { proxyServiceHttpPortSchema, proxyServicePortSchema } from "@/schemas/proxyServicePort"
 import { proxyServiceTargetPathSchema } from "@/schemas/proxyServiceTargetPath"
-import { ProxyServiceType } from "@/schemas/proxyServiceType"
-import { ProxyTargetProtocol } from "@/schemas/proxyTargetProtocol"
-import type { UpdateProxyServiceParams } from "@/schemas/updateProxyService"
+import { type ProxyServiceType, proxyServiceTypeParser, proxyServiceTypeSchema, ProxyServiceType as ProxyServiceTypeValue } from "@/schemas/proxyServiceType"
+import {
+    type ProxyTargetProtocol,
+    proxyTargetProtocolParser,
+    proxyTargetProtocolSchema,
+    ProxyTargetProtocol as ProxyTargetProtocolValue,
+} from "@/schemas/proxyTargetProtocol"
+import { updateProxyServiceParser } from "@/schemas/updateProxyService"
 
-export interface ProxyServiceEditorProps extends Omit<ComponentProps<typeof Modal>, "title" | "children" | "onOk" | "onClose"> {
+import { getOnBlurValidator } from "@/utils/getOnBlurValidator"
+
+const proxyServiceFormSchema = addProxyServiceSchema as ZodType<AddProxyServiceParams, AddProxyServiceParams>
+
+export interface ProxyServiceEditorProps {
     id?: string
     defaultServiceType?: ProxyServiceType
+    open?: boolean
     onClose?: () => void
 }
 
@@ -45,7 +71,7 @@ export function getDefaultProxyServiceLocationFormValues(): ProxyServiceLocation
     return {
         locationPath: "/",
         targetMode: ProxyServiceLocationTargetMode.静态,
-        targetProtocol: ProxyTargetProtocol.HTTP,
+        targetProtocol: ProxyTargetProtocolValue.HTTP,
         targetHost: "",
         targetPort: 80,
         targetPath: "/",
@@ -53,12 +79,18 @@ export function getDefaultProxyServiceLocationFormValues(): ProxyServiceLocation
     }
 }
 
-export function getDefaultProxyServiceFormValues({ serviceType = ProxyServiceType.反向代理 }: GetDefaultProxyServiceFormValuesParams = {}) {
-    const values: Partial<AddProxyServiceParams> = {
+export function getDefaultProxyServiceFormValues({
+    serviceType = ProxyServiceTypeValue.反向代理,
+}: GetDefaultProxyServiceFormValuesParams = {}): AddProxyServiceParams {
+    return {
         serviceType,
+        sourceAddress: undefined,
         httpPort: defaultProxyServiceHttpPort,
         httpsPort: defaultProxyServiceHttpsPort,
-        targetProtocol: ProxyTargetProtocol.HTTP,
+        targetProtocol: ProxyTargetProtocolValue.HTTP,
+        targetHost: undefined,
+        targetPort: undefined,
+        locations: serviceType === ProxyServiceTypeValue.反向代理 ? [getDefaultProxyServiceLocationFormValues()] : [],
         websocketEnabled: true,
         corsEnabled: false,
         tcpForwardEnabled: true,
@@ -66,20 +98,18 @@ export function getDefaultProxyServiceFormValues({ serviceType = ProxyServiceTyp
         enabled: true,
         httpsEnabled: false,
         http2HttpsEnabled: false,
+        certificateId: undefined,
+        remark: undefined,
     }
-
-    if (serviceType === ProxyServiceType.反向代理) values.locations = [getDefaultProxyServiceLocationFormValues()]
-
-    return values
 }
 
-export function getProxyServiceFormValues(data: ProxyService) {
-    const values = {
-        serviceType: data.serviceType,
+export function getProxyServiceFormValues(data: ProxyService): AddProxyServiceParams {
+    return {
+        serviceType: proxyServiceTypeParser(data.serviceType),
         sourceAddress: data.sourceAddress,
         httpPort: data.httpPort,
         httpsPort: data.httpsPort,
-        targetProtocol: data.targetProtocol,
+        targetProtocol: proxyTargetProtocolParser(data.targetProtocol),
         targetHost: data.targetHost ?? undefined,
         targetPort: data.targetPort ?? undefined,
         locations: getProxyServiceLocations(data.locations),
@@ -92,27 +122,27 @@ export function getProxyServiceFormValues(data: ProxyService) {
         http2HttpsEnabled: data.http2HttpsEnabled,
         certificateId: data.certificateId ?? undefined,
         remark: data.remark || undefined,
-    } as AddProxyServiceParams
-
-    return values
+    }
 }
 
-export const ProxyServiceEditor: FC<ProxyServiceEditorProps> = ({
-    id,
-    defaultServiceType = ProxyServiceType.反向代理,
-    open,
-    mask = { enabled: true, closable: true, blur: true },
-    onClose,
-    okButtonProps: { loading: okButtonLoading, ...okButtonProps } = {},
-    cancelButtonProps: { disabled: cancelButtonDisabled, ...cancelButtonProps } = {},
-    ...rest
-}) => {
-    const { enabled, closable, blur } = typeof mask === "boolean" ? { enabled: mask, closable: true, blur: true } : mask
+interface SwitchFieldProps {
+    label: string
+    checked: boolean
+    disabled: boolean
+    onCheckedChange: (checked: boolean) => void
+}
+
+const SwitchField: FC<SwitchFieldProps> = ({ label, checked, disabled, onCheckedChange }) => (
+    <Field orientation="horizontal" className="rounded-2xl border px-3 py-2">
+        <FieldLabel className="flex-auto">{label}</FieldLabel>
+        <Switch className="flex-none" checked={checked} disabled={disabled} onCheckedChange={onCheckedChange} />
+    </Field>
+)
+
+export const ProxyServiceEditor: FC<ProxyServiceEditorProps> = ({ id, defaultServiceType = ProxyServiceTypeValue.反向代理, open = false, onClose }) => {
     const isUpdate = isNonNullable(id)
-    const [form] = useForm<AddProxyServiceParams>()
-    const serviceType = Form.useWatch("serviceType", form) ?? defaultServiceType
-    const isPortForward = serviceType === ProxyServiceType.端口转发
-    const { data, isLoading } = useGetProxyService(id, { enabled: !!open && isUpdate })
+    const { data, isLoading } = useGetProxyService(id, { enabled: open && isUpdate })
+    const { data: certificateData, isLoading: isCertificateLoading } = useQueryCertificate({ pageSize: 1000 }, { enabled: open })
 
     const { mutateAsync: addProxyService, isPending: isAddProxyServicePending } = useAddProxyService({
         onSuccess() {
@@ -126,276 +156,704 @@ export const ProxyServiceEditor: FC<ProxyServiceEditorProps> = ({
         },
     })
 
-    useEffect(() => {
-        if (!open) return
-        if (isUpdate) return
+    const form = useForm({
+        defaultValues: getDefaultProxyServiceFormValues({ serviceType: defaultServiceType }),
+        validators: {
+            onSubmit: proxyServiceFormSchema,
+        },
+        async onSubmit({ value }) {
+            const values = addProxyServiceParser(value)
 
-        form.setFieldsValue(getDefaultProxyServiceFormValues({ serviceType: defaultServiceType }))
-    }, [open, isUpdate, defaultServiceType, form])
-
-    useEffect(() => {
-        if (!open || !data) return
-        form.setFieldsValue(getProxyServiceFormValues(data))
-    }, [open, data, form])
-
-    useEffect(() => {
-        if (open) return
-        form.resetFields()
-    }, [open, form])
+            if (id) await updateProxyService(updateProxyServiceParser({ id, ...values }))
+            else await addProxyService(values)
+        },
+    })
 
     useEffect(() => {
-        if (!open || isUpdate || isPortForward) return
+        if (!open || !isUpdate) form.reset(getDefaultProxyServiceFormValues({ serviceType: defaultServiceType }))
+    }, [defaultServiceType, form, isUpdate, open])
 
-        const locations = form.getFieldValue("locations")
-        if (locations?.length > 0) return
-
-        form.setFieldValue("locations", [getDefaultProxyServiceLocationFormValues()])
-    }, [open, isUpdate, isPortForward, form])
+    useEffect(() => {
+        if (open && data) form.reset(getProxyServiceFormValues(data))
+    }, [data, form, open])
 
     const isPending = isAddProxyServicePending || isUpdateProxyServicePending
-
     const isRequesting = isLoading || isPending
 
-    function onFinish(values: AddProxyServiceParams) {
-        if (isUpdate) updateProxyService({ id: id!, ...values } as UpdateProxyServiceParams)
-        else addProxyService(values)
+    function onOpenChange(nextOpen: boolean) {
+        if (!nextOpen && !isPending) onClose?.()
     }
 
     return (
-        <Modal
-            title={`${isUpdate ? "修改" : "新增"}${isPortForward ? "端口转发" : "反向代理"}`}
-            open={open}
-            mask={{ enabled, closable: closable && !isPending, blur }}
-            onOk={() => form.submit()}
-            okButtonProps={{ loading: isRequesting || okButtonLoading, ...okButtonProps }}
-            cancelButtonProps={{ disabled: isPending || cancelButtonDisabled, ...cancelButtonProps }}
-            onCancel={() => onClose?.()}
-            {...rest}
-        >
-            <Form<AddProxyServiceParams>
-                name="proxy-service-editor"
-                form={form}
-                disabled={isRequesting}
-                labelCol={{ flex: "104px" }}
-                initialValues={getDefaultProxyServiceFormValues({ serviceType: defaultServiceType })}
-                onFinish={onFinish}
-            >
-                <FormItem<AddProxyServiceParams> name="serviceType" label="类型">
-                    <Select
-                        disabled={isUpdate}
-                        options={[
-                            { label: "反向代理", value: ProxyServiceType.反向代理 },
-                            { label: "端口转发", value: ProxyServiceType.端口转发 },
-                        ]}
-                    />
-                </FormItem>
-                <FormItem<AddProxyServiceParams> name="enabled" label="启用服务" valuePropName="checked">
-                    <Switch />
-                </FormItem>
-                {isPortForward ? <PortForwardDetailForm /> : <ReverseProxyDetailForm />}
-                <SslForm isPortForward={isPortForward} />
-                <FormItem<AddProxyServiceParams> name="remark" label="备注">
-                    <Input.TextArea autoComplete="off" allowClear autoSize={{ minRows: 2, maxRows: 6 }} />
-                </FormItem>
-                <FormItem<AddProxyServiceParams> noStyle>
-                    <Button className="!hidden" htmlType="submit">
-                        提交
-                    </Button>
-                </FormItem>
-            </Form>
-        </Modal>
-    )
-}
+        <Dialog open={open} onOpenChange={onOpenChange}>
+            <DialogContent className="sm:max-w-4xl" showCloseButton={!isPending}>
+                <DialogHeader>
+                    <form.Subscribe selector={state => state.values.serviceType}>
+                        {serviceType => (
+                            <DialogTitle>
+                                {isUpdate ? "修改" : "新增"}
+                                {serviceType === ProxyServiceTypeValue.端口转发 ? "端口转发" : "反向代理"}
+                            </DialogTitle>
+                        )}
+                    </form.Subscribe>
+                    <DialogDescription>配置反向代理或端口转发，保存后会同步 Nginx 配置。</DialogDescription>
+                </DialogHeader>
+                <DialogBody>
+                    <form
+                        id="proxy-service-editor-form"
+                        onSubmit={event => {
+                            event.preventDefault()
+                            event.stopPropagation()
+                            void form.handleSubmit()
+                        }}
+                    >
+                        <FieldGroup className="gap-5">
+                            <div className="grid gap-4 md:grid-cols-2">
+                                <form.Field name="serviceType" validators={{ onBlur: getOnBlurValidator(proxyServiceTypeSchema) }}>
+                                    {field => {
+                                        const isInvalid = field.state.meta.isTouched && !field.state.meta.isValid
 
-export interface SslFormProps {
-    isPortForward: boolean
-}
+                                        return (
+                                            <Field data-invalid={isInvalid}>
+                                                <FieldLabel>类型</FieldLabel>
+                                                <Select
+                                                    value={field.state.value}
+                                                    disabled={isRequesting || isUpdate}
+                                                    onValueChange={value => {
+                                                        const serviceType = value as ProxyServiceType
+                                                        field.handleChange(serviceType)
 
-export const ReverseProxyDetailForm: FC = () => {
-    const httpsEnabled = Form.useWatch("httpsEnabled")
-
-    return (
-        <div>
-            {!httpsEnabled && (
-                <FormItem<AddProxyServiceParams> name="sourceAddress" label="访问地址" rules={[schemaToRule(proxyServiceAddressSchema)]}>
-                    <Input autoComplete="off" allowClear placeholder="example.com / 192.168.1.10 / fd00::1" />
-                </FormItem>
-            )}
-            <div className="grid grid-cols-2 gap-2">
-                <FormItem<AddProxyServiceParams> name="httpPort" label="HTTP 端口" rules={[schemaToRule(proxyServiceHttpPortSchema)]}>
-                    <InputNumber className="w-full" min={0} max={65535} />
-                </FormItem>
-                <FormItem<AddProxyServiceParams> name="httpsPort" label="HTTPS 端口" rules={[schemaToRule(proxyServicePortSchema)]}>
-                    <InputNumber className="w-full" min={1} max={65535} />
-                </FormItem>
-            </div>
-            <FormItem<AddProxyServiceParams> label="路径规则" required>
-                <Form.List name="locations">
-                    {(fields, { add, remove }) => (
-                        <div className="flex flex-col gap-3">
-                            {fields.map((field, index) => (
-                                <div key={field.key} className="rounded-md border border-slate-200 bg-slate-50 p-3">
-                                    <div className="mb-3 flex items-center justify-between gap-2">
-                                        <span className="text-sm font-medium text-slate-700">{index === 0 ? "Location" : `Location ${index + 1}`}</span>
-                                        <Button
-                                            danger
-                                            type="text"
-                                            size="small"
-                                            disabled={fields.length <= 1}
-                                            icon={<IconTrash size={16} />}
-                                            onClick={() => remove(field.name)}
+                                                        if (serviceType === ProxyServiceTypeValue.反向代理 && form.getFieldValue("locations").length === 0)
+                                                            form.setFieldValue("locations", [getDefaultProxyServiceLocationFormValues()])
+                                                    }}
+                                                >
+                                                    <SelectTrigger aria-invalid={isInvalid} onBlur={field.handleBlur}>
+                                                        <SelectValue />
+                                                    </SelectTrigger>
+                                                    <SelectContent>
+                                                        <SelectItem value={ProxyServiceTypeValue.反向代理}>反向代理</SelectItem>
+                                                        <SelectItem value={ProxyServiceTypeValue.端口转发}>端口转发</SelectItem>
+                                                    </SelectContent>
+                                                </Select>
+                                                {isInvalid && <FieldError errors={field.state.meta.errors} />}
+                                            </Field>
+                                        )
+                                    }}
+                                </form.Field>
+                                <form.Field name="enabled">
+                                    {field => (
+                                        <SwitchField
+                                            label="启用服务"
+                                            checked={field.state.value}
+                                            disabled={isRequesting}
+                                            onCheckedChange={field.handleChange}
                                         />
-                                    </div>
-                                    <div className="grid grid-cols-1 gap-2 md:grid-cols-[minmax(200px,1fr)_208px]">
-                                        <FormItem name={[field.name, "locationPath"]} label="Location" rules={[schemaToRule(proxyServiceLocationPathSchema)]}>
-                                            <Input autoComplete="off" allowClear placeholder="/path" />
-                                        </FormItem>
-                                        <FormItem name={[field.name, "targetMode"]} label="目标模式" rules={[{ required: true, message: "请选择目标模式" }]}>
-                                            <Select
-                                                options={[
-                                                    { label: "静态目标", value: ProxyServiceLocationTargetMode.静态 },
-                                                    { label: "动态 URL", value: ProxyServiceLocationTargetMode.动态 },
-                                                ]}
-                                            />
-                                        </FormItem>
-                                    </div>
-                                    <FormItem<AddProxyServiceParams> noStyle shouldUpdate>
-                                        {form => {
-                                            const targetMode = form.getFieldValue(["locations", field.name, "targetMode"])
+                                    )}
+                                </form.Field>
+                            </div>
 
-                                            if (targetMode === ProxyServiceLocationTargetMode.动态) {
-                                                return (
-                                                    <div className="grid grid-cols-1 gap-2 md:grid-cols-[180px_minmax(260px,1fr)]">
-                                                        <FormItem
-                                                            name={[field.name, "dynamicTargetQueryName"]}
-                                                            label="URL 参数名"
-                                                            rules={[schemaToRule(dynamicProxyServiceTargetQueryNameSchema)]}
-                                                        >
-                                                            <Input autoComplete="off" allowClear placeholder="url" />
-                                                        </FormItem>
-                                                        <FormItem
-                                                            name={[field.name, "dynamicTargetAllowPattern"]}
-                                                            label="允许 URL 正则"
-                                                            rules={[schemaToRule(dynamicProxyServiceTargetAllowPatternSchema)]}
-                                                        >
-                                                            <Input autoComplete="off" allowClear placeholder="^https://example\\.com/" />
-                                                        </FormItem>
-                                                    </div>
-                                                )
-                                            }
-
-                                            return (
-                                                <Fragment>
-                                                    <div className="grid grid-cols-1 gap-2 md:grid-cols-[minmax(240px,1.6fr)_172px_minmax(188px,1.4fr)]">
-                                                        <FormItem
-                                                            name={[field.name, "targetHost"]}
-                                                            label="转发主机 / IP"
-                                                            rules={[schemaToRule(proxyServiceAddressSchema)]}
-                                                        >
-                                                            <Input autoComplete="off" allowClear placeholder="10.0.0.1" />
-                                                        </FormItem>
-                                                        <FormItem
-                                                            name={[field.name, "targetPort"]}
-                                                            label="转发端口"
-                                                            rules={[schemaToRule(proxyServicePortSchema)]}
-                                                        >
-                                                            <InputNumber className="w-full" min={1} max={65535} />
-                                                        </FormItem>
-                                                        <FormItem
-                                                            name={[field.name, "targetPath"]}
-                                                            label="转发路径"
-                                                            rules={[schemaToRule(proxyServiceTargetPathSchema)]}
-                                                        >
-                                                            <Input autoComplete="off" allowClear placeholder="/path/" />
-                                                        </FormItem>
-                                                    </div>
-                                                    <FormItem name={[field.name, "targetProtocol"]} className="!mb-0" label="转发协议">
-                                                        <Select
-                                                            options={[
-                                                                { label: "HTTP", value: ProxyTargetProtocol.HTTP },
-                                                                { label: "HTTPS", value: ProxyTargetProtocol.HTTPS },
-                                                            ]}
+                            <form.Subscribe selector={state => [state.values.serviceType, state.values.httpsEnabled]}>
+                                {([serviceType, httpsEnabled]) =>
+                                    serviceType === ProxyServiceTypeValue.端口转发 ? (
+                                        <FieldGroup className="gap-5 rounded-2xl border bg-muted/30 p-4">
+                                            <div className="grid gap-4 md:grid-cols-3">
+                                                <form.Field name="httpPort" validators={{ onBlur: getOnBlurValidator(proxyServicePortSchema) }}>
+                                                    {field => {
+                                                        const isInvalid = field.state.meta.isTouched && !field.state.meta.isValid
+                                                        return (
+                                                            <Field data-invalid={isInvalid}>
+                                                                <FieldLabel htmlFor="proxy-service-http-port">入站端口</FieldLabel>
+                                                                <Input
+                                                                    id="proxy-service-http-port"
+                                                                    type="number"
+                                                                    min={1}
+                                                                    max={65535}
+                                                                    disabled={isRequesting}
+                                                                    aria-invalid={isInvalid}
+                                                                    value={field.state.value}
+                                                                    onBlur={field.handleBlur}
+                                                                    onChange={event => field.handleChange(Number(event.target.value))}
+                                                                />
+                                                                {isInvalid && <FieldError errors={field.state.meta.errors} />}
+                                                            </Field>
+                                                        )
+                                                    }}
+                                                </form.Field>
+                                                <form.Field name="targetHost" validators={{ onBlur: getOnBlurValidator(optionalProxyServiceAddressSchema) }}>
+                                                    {field => {
+                                                        const isInvalid = field.state.meta.isTouched && !field.state.meta.isValid
+                                                        return (
+                                                            <Field data-invalid={isInvalid}>
+                                                                <FieldLabel htmlFor="proxy-service-target-host">转发主机</FieldLabel>
+                                                                <Input
+                                                                    id="proxy-service-target-host"
+                                                                    autoComplete="off"
+                                                                    disabled={isRequesting}
+                                                                    placeholder="10.0.0.1"
+                                                                    aria-invalid={isInvalid}
+                                                                    value={field.state.value ?? ""}
+                                                                    onBlur={field.handleBlur}
+                                                                    onChange={event => field.handleChange(event.target.value || undefined)}
+                                                                />
+                                                                {isInvalid && <FieldError errors={field.state.meta.errors} />}
+                                                            </Field>
+                                                        )
+                                                    }}
+                                                </form.Field>
+                                                <form.Field name="targetPort" validators={{ onBlur: getOnBlurValidator(proxyServicePortSchema.optional()) }}>
+                                                    {field => {
+                                                        const isInvalid = field.state.meta.isTouched && !field.state.meta.isValid
+                                                        return (
+                                                            <Field data-invalid={isInvalid}>
+                                                                <FieldLabel htmlFor="proxy-service-target-port">转发端口</FieldLabel>
+                                                                <Input
+                                                                    id="proxy-service-target-port"
+                                                                    type="number"
+                                                                    min={1}
+                                                                    max={65535}
+                                                                    disabled={isRequesting}
+                                                                    aria-invalid={isInvalid}
+                                                                    value={field.state.value ?? ""}
+                                                                    onBlur={field.handleBlur}
+                                                                    onChange={event =>
+                                                                        field.handleChange(event.target.value ? Number(event.target.value) : undefined)
+                                                                    }
+                                                                />
+                                                                {isInvalid && <FieldError errors={field.state.meta.errors} />}
+                                                            </Field>
+                                                        )
+                                                    }}
+                                                </form.Field>
+                                            </div>
+                                            <div className="grid gap-3 sm:grid-cols-3">
+                                                <form.Field name="tcpForwardEnabled">
+                                                    {field => (
+                                                        <SwitchField
+                                                            label="TCP"
+                                                            checked={field.state.value}
+                                                            disabled={isRequesting}
+                                                            onCheckedChange={field.handleChange}
                                                         />
-                                                    </FormItem>
-                                                </Fragment>
-                                            )
-                                        }}
-                                    </FormItem>
-                                </div>
-                            ))}
-                            <Button type="dashed" icon={<IconPlus size={16} />} onClick={() => add(getDefaultProxyServiceLocationFormValues())}>
-                                添加路径规则
+                                                    )}
+                                                </form.Field>
+                                                <form.Field name="udpForwardEnabled">
+                                                    {field => (
+                                                        <SwitchField
+                                                            label="UDP"
+                                                            checked={field.state.value}
+                                                            disabled={isRequesting}
+                                                            onCheckedChange={field.handleChange}
+                                                        />
+                                                    )}
+                                                </form.Field>
+                                                <form.Field name="httpsEnabled">
+                                                    {field => (
+                                                        <SwitchField
+                                                            label="SSL 证书"
+                                                            checked={field.state.value}
+                                                            disabled={isRequesting}
+                                                            onCheckedChange={field.handleChange}
+                                                        />
+                                                    )}
+                                                </form.Field>
+                                            </div>
+                                        </FieldGroup>
+                                    ) : (
+                                        <FieldGroup className="gap-5">
+                                            <div className="grid gap-4 md:grid-cols-3">
+                                                {!httpsEnabled && (
+                                                    <form.Field
+                                                        name="sourceAddress"
+                                                        validators={{ onBlur: getOnBlurValidator(optionalProxyServiceAddressSchema) }}
+                                                    >
+                                                        {field => {
+                                                            const isInvalid = field.state.meta.isTouched && !field.state.meta.isValid
+                                                            return (
+                                                                <Field data-invalid={isInvalid}>
+                                                                    <FieldLabel htmlFor="proxy-service-source-address">访问地址</FieldLabel>
+                                                                    <Input
+                                                                        id="proxy-service-source-address"
+                                                                        autoComplete="off"
+                                                                        disabled={isRequesting}
+                                                                        placeholder="example.com"
+                                                                        aria-invalid={isInvalid}
+                                                                        value={field.state.value ?? ""}
+                                                                        onBlur={field.handleBlur}
+                                                                        onChange={event => field.handleChange(event.target.value || undefined)}
+                                                                    />
+                                                                    {isInvalid && <FieldError errors={field.state.meta.errors} />}
+                                                                </Field>
+                                                            )
+                                                        }}
+                                                    </form.Field>
+                                                )}
+                                                <form.Field name="httpPort" validators={{ onBlur: getOnBlurValidator(proxyServiceHttpPortSchema) }}>
+                                                    {field => {
+                                                        const isInvalid = field.state.meta.isTouched && !field.state.meta.isValid
+                                                        return (
+                                                            <Field data-invalid={isInvalid}>
+                                                                <FieldLabel htmlFor="proxy-service-http-port">HTTP 端口</FieldLabel>
+                                                                <Input
+                                                                    id="proxy-service-http-port"
+                                                                    type="number"
+                                                                    min={0}
+                                                                    max={65535}
+                                                                    disabled={isRequesting}
+                                                                    aria-invalid={isInvalid}
+                                                                    value={field.state.value}
+                                                                    onBlur={field.handleBlur}
+                                                                    onChange={event => field.handleChange(Number(event.target.value))}
+                                                                />
+                                                                {isInvalid && <FieldError errors={field.state.meta.errors} />}
+                                                            </Field>
+                                                        )
+                                                    }}
+                                                </form.Field>
+                                                <form.Field name="httpsPort" validators={{ onBlur: getOnBlurValidator(proxyServicePortSchema) }}>
+                                                    {field => {
+                                                        const isInvalid = field.state.meta.isTouched && !field.state.meta.isValid
+                                                        return (
+                                                            <Field data-invalid={isInvalid}>
+                                                                <FieldLabel htmlFor="proxy-service-https-port">HTTPS 端口</FieldLabel>
+                                                                <Input
+                                                                    id="proxy-service-https-port"
+                                                                    type="number"
+                                                                    min={1}
+                                                                    max={65535}
+                                                                    disabled={isRequesting}
+                                                                    aria-invalid={isInvalid}
+                                                                    value={field.state.value}
+                                                                    onBlur={field.handleBlur}
+                                                                    onChange={event => field.handleChange(Number(event.target.value))}
+                                                                />
+                                                                {isInvalid && <FieldError errors={field.state.meta.errors} />}
+                                                            </Field>
+                                                        )
+                                                    }}
+                                                </form.Field>
+                                            </div>
+
+                                            <form.Field name="locations" mode="array">
+                                                {locationsField => (
+                                                    <Field>
+                                                        <div className="flex items-center justify-between gap-3">
+                                                            <FieldLabel>路径规则</FieldLabel>
+                                                            <Button
+                                                                type="button"
+                                                                size="sm"
+                                                                variant="outline"
+                                                                disabled={isRequesting}
+                                                                onClick={() => locationsField.pushValue(getDefaultProxyServiceLocationFormValues())}
+                                                            >
+                                                                <PlusIcon />
+                                                                添加路径规则
+                                                            </Button>
+                                                        </div>
+                                                        <div className="space-y-3">
+                                                            {locationsField.state.value.map((location, index) => (
+                                                                <div key={index} className="space-y-4 rounded-2xl border bg-muted/30 p-4">
+                                                                    <div className="flex items-center justify-between gap-3">
+                                                                        <div className="text-sm font-medium">
+                                                                            {index === 0 ? "Location" : `Location ${index + 1}`}
+                                                                        </div>
+                                                                        <Button
+                                                                            type="button"
+                                                                            size="icon-sm"
+                                                                            variant="ghost"
+                                                                            disabled={isRequesting || locationsField.state.value.length <= 1}
+                                                                            aria-label={`删除 Location ${index + 1}`}
+                                                                            onClick={() => locationsField.removeValue(index)}
+                                                                        >
+                                                                            <Trash2Icon />
+                                                                        </Button>
+                                                                    </div>
+                                                                    <div className="grid gap-4 md:grid-cols-2">
+                                                                        <form.Field
+                                                                            name={`locations[${index}].locationPath`}
+                                                                            validators={{ onBlur: getOnBlurValidator(proxyServiceLocationPathSchema) }}
+                                                                        >
+                                                                            {field => {
+                                                                                const isInvalid = field.state.meta.isTouched && !field.state.meta.isValid
+                                                                                return (
+                                                                                    <Field data-invalid={isInvalid}>
+                                                                                        <FieldLabel htmlFor={`proxy-location-${index}-path`}>
+                                                                                            Location
+                                                                                        </FieldLabel>
+                                                                                        <Input
+                                                                                            id={`proxy-location-${index}-path`}
+                                                                                            autoComplete="off"
+                                                                                            disabled={isRequesting}
+                                                                                            placeholder="/path"
+                                                                                            aria-invalid={isInvalid}
+                                                                                            value={field.state.value}
+                                                                                            onBlur={field.handleBlur}
+                                                                                            onChange={event => field.handleChange(event.target.value)}
+                                                                                        />
+                                                                                        {isInvalid && <FieldError errors={field.state.meta.errors} />}
+                                                                                    </Field>
+                                                                                )
+                                                                            }}
+                                                                        </form.Field>
+                                                                        <form.Field
+                                                                            name={`locations[${index}].targetMode`}
+                                                                            validators={{ onBlur: getOnBlurValidator(proxyServiceLocationTargetModeSchema) }}
+                                                                        >
+                                                                            {field => {
+                                                                                const isInvalid = field.state.meta.isTouched && !field.state.meta.isValid
+                                                                                return (
+                                                                                    <Field data-invalid={isInvalid}>
+                                                                                        <FieldLabel>目标模式</FieldLabel>
+                                                                                        <Select
+                                                                                            value={field.state.value}
+                                                                                            disabled={isRequesting}
+                                                                                            onValueChange={value =>
+                                                                                                field.handleChange(value as ProxyServiceLocationTargetMode)
+                                                                                            }
+                                                                                        >
+                                                                                            <SelectTrigger aria-invalid={isInvalid} onBlur={field.handleBlur}>
+                                                                                                <SelectValue />
+                                                                                            </SelectTrigger>
+                                                                                            <SelectContent>
+                                                                                                <SelectItem value={ProxyServiceLocationTargetMode.静态}>
+                                                                                                    静态目标
+                                                                                                </SelectItem>
+                                                                                                <SelectItem value={ProxyServiceLocationTargetMode.动态}>
+                                                                                                    动态 URL
+                                                                                                </SelectItem>
+                                                                                            </SelectContent>
+                                                                                        </Select>
+                                                                                        {isInvalid && <FieldError errors={field.state.meta.errors} />}
+                                                                                    </Field>
+                                                                                )
+                                                                            }}
+                                                                        </form.Field>
+                                                                    </div>
+
+                                                                    {location.targetMode === ProxyServiceLocationTargetMode.动态 ? (
+                                                                        <div className="grid gap-4 md:grid-cols-2">
+                                                                            <form.Field
+                                                                                name={`locations[${index}].dynamicTargetQueryName`}
+                                                                                validators={{
+                                                                                    onBlur: getOnBlurValidator(
+                                                                                        dynamicProxyServiceTargetQueryNameSchema.optional(),
+                                                                                    ),
+                                                                                }}
+                                                                            >
+                                                                                {field => {
+                                                                                    const isInvalid = field.state.meta.isTouched && !field.state.meta.isValid
+                                                                                    return (
+                                                                                        <Field data-invalid={isInvalid}>
+                                                                                            <FieldLabel htmlFor={`proxy-location-${index}-query`}>
+                                                                                                URL 参数名
+                                                                                            </FieldLabel>
+                                                                                            <Input
+                                                                                                id={`proxy-location-${index}-query`}
+                                                                                                autoComplete="off"
+                                                                                                disabled={isRequesting}
+                                                                                                placeholder="url"
+                                                                                                aria-invalid={isInvalid}
+                                                                                                value={field.state.value ?? ""}
+                                                                                                onBlur={field.handleBlur}
+                                                                                                onChange={event => field.handleChange(event.target.value)}
+                                                                                            />
+                                                                                            {isInvalid && <FieldError errors={field.state.meta.errors} />}
+                                                                                        </Field>
+                                                                                    )
+                                                                                }}
+                                                                            </form.Field>
+                                                                            <form.Field
+                                                                                name={`locations[${index}].dynamicTargetAllowPattern`}
+                                                                                validators={{
+                                                                                    onBlur: getOnBlurValidator(dynamicProxyServiceTargetAllowPatternSchema),
+                                                                                }}
+                                                                            >
+                                                                                {field => {
+                                                                                    const isInvalid = field.state.meta.isTouched && !field.state.meta.isValid
+                                                                                    return (
+                                                                                        <Field data-invalid={isInvalid}>
+                                                                                            <FieldLabel htmlFor={`proxy-location-${index}-pattern`}>
+                                                                                                允许 URL 正则
+                                                                                            </FieldLabel>
+                                                                                            <Input
+                                                                                                id={`proxy-location-${index}-pattern`}
+                                                                                                autoComplete="off"
+                                                                                                disabled={isRequesting}
+                                                                                                placeholder="^https://example\\.com/"
+                                                                                                aria-invalid={isInvalid}
+                                                                                                value={field.state.value ?? ""}
+                                                                                                onBlur={field.handleBlur}
+                                                                                                onChange={event =>
+                                                                                                    field.handleChange(event.target.value || undefined)
+                                                                                                }
+                                                                                            />
+                                                                                            {isInvalid && <FieldError errors={field.state.meta.errors} />}
+                                                                                        </Field>
+                                                                                    )
+                                                                                }}
+                                                                            </form.Field>
+                                                                        </div>
+                                                                    ) : (
+                                                                        <div className="grid gap-4 md:grid-cols-4">
+                                                                            <form.Field
+                                                                                name={`locations[${index}].targetHost`}
+                                                                                validators={{
+                                                                                    onBlur: getOnBlurValidator(proxyServiceAddressSchema.optional()),
+                                                                                }}
+                                                                            >
+                                                                                {field => {
+                                                                                    const isInvalid = field.state.meta.isTouched && !field.state.meta.isValid
+                                                                                    return (
+                                                                                        <Field className="md:col-span-2" data-invalid={isInvalid}>
+                                                                                            <FieldLabel htmlFor={`proxy-location-${index}-host`}>
+                                                                                                转发主机 / IP
+                                                                                            </FieldLabel>
+                                                                                            <Input
+                                                                                                id={`proxy-location-${index}-host`}
+                                                                                                autoComplete="off"
+                                                                                                disabled={isRequesting}
+                                                                                                placeholder="10.0.0.1"
+                                                                                                aria-invalid={isInvalid}
+                                                                                                value={field.state.value ?? ""}
+                                                                                                onBlur={field.handleBlur}
+                                                                                                onChange={event =>
+                                                                                                    field.handleChange(event.target.value || undefined)
+                                                                                                }
+                                                                                            />
+                                                                                            {isInvalid && <FieldError errors={field.state.meta.errors} />}
+                                                                                        </Field>
+                                                                                    )
+                                                                                }}
+                                                                            </form.Field>
+                                                                            <form.Field
+                                                                                name={`locations[${index}].targetPort`}
+                                                                                validators={{ onBlur: getOnBlurValidator(proxyServicePortSchema.optional()) }}
+                                                                            >
+                                                                                {field => {
+                                                                                    const isInvalid = field.state.meta.isTouched && !field.state.meta.isValid
+                                                                                    return (
+                                                                                        <Field data-invalid={isInvalid}>
+                                                                                            <FieldLabel htmlFor={`proxy-location-${index}-port`}>
+                                                                                                转发端口
+                                                                                            </FieldLabel>
+                                                                                            <Input
+                                                                                                id={`proxy-location-${index}-port`}
+                                                                                                type="number"
+                                                                                                min={1}
+                                                                                                max={65535}
+                                                                                                disabled={isRequesting}
+                                                                                                aria-invalid={isInvalid}
+                                                                                                value={field.state.value ?? ""}
+                                                                                                onBlur={field.handleBlur}
+                                                                                                onChange={event =>
+                                                                                                    field.handleChange(
+                                                                                                        event.target.value
+                                                                                                            ? Number(event.target.value)
+                                                                                                            : undefined,
+                                                                                                    )
+                                                                                                }
+                                                                                            />
+                                                                                            {isInvalid && <FieldError errors={field.state.meta.errors} />}
+                                                                                        </Field>
+                                                                                    )
+                                                                                }}
+                                                                            </form.Field>
+                                                                            <form.Field
+                                                                                name={`locations[${index}].targetProtocol`}
+                                                                                validators={{
+                                                                                    onBlur: getOnBlurValidator(proxyTargetProtocolSchema.optional()),
+                                                                                }}
+                                                                            >
+                                                                                {field => {
+                                                                                    const isInvalid = field.state.meta.isTouched && !field.state.meta.isValid
+                                                                                    return (
+                                                                                        <Field data-invalid={isInvalid}>
+                                                                                            <FieldLabel>转发协议</FieldLabel>
+                                                                                            <Select
+                                                                                                value={field.state.value ?? ProxyTargetProtocolValue.HTTP}
+                                                                                                disabled={isRequesting}
+                                                                                                onValueChange={value =>
+                                                                                                    field.handleChange(value as ProxyTargetProtocol)
+                                                                                                }
+                                                                                            >
+                                                                                                <SelectTrigger
+                                                                                                    aria-invalid={isInvalid}
+                                                                                                    onBlur={field.handleBlur}
+                                                                                                >
+                                                                                                    <SelectValue />
+                                                                                                </SelectTrigger>
+                                                                                                <SelectContent>
+                                                                                                    <SelectItem value={ProxyTargetProtocolValue.HTTP}>
+                                                                                                        HTTP
+                                                                                                    </SelectItem>
+                                                                                                    <SelectItem value={ProxyTargetProtocolValue.HTTPS}>
+                                                                                                        HTTPS
+                                                                                                    </SelectItem>
+                                                                                                </SelectContent>
+                                                                                            </Select>
+                                                                                            {isInvalid && <FieldError errors={field.state.meta.errors} />}
+                                                                                        </Field>
+                                                                                    )
+                                                                                }}
+                                                                            </form.Field>
+                                                                            <form.Field
+                                                                                name={`locations[${index}].targetPath`}
+                                                                                validators={{
+                                                                                    onBlur: getOnBlurValidator(proxyServiceTargetPathSchema.optional()),
+                                                                                }}
+                                                                            >
+                                                                                {field => {
+                                                                                    const isInvalid = field.state.meta.isTouched && !field.state.meta.isValid
+                                                                                    return (
+                                                                                        <Field className="md:col-span-4" data-invalid={isInvalid}>
+                                                                                            <FieldLabel htmlFor={`proxy-location-${index}-target-path`}>
+                                                                                                转发路径
+                                                                                            </FieldLabel>
+                                                                                            <Input
+                                                                                                id={`proxy-location-${index}-target-path`}
+                                                                                                autoComplete="off"
+                                                                                                disabled={isRequesting}
+                                                                                                placeholder="/path/"
+                                                                                                aria-invalid={isInvalid}
+                                                                                                value={field.state.value ?? ""}
+                                                                                                onBlur={field.handleBlur}
+                                                                                                onChange={event =>
+                                                                                                    field.handleChange(event.target.value || undefined)
+                                                                                                }
+                                                                                            />
+                                                                                            {isInvalid && <FieldError errors={field.state.meta.errors} />}
+                                                                                        </Field>
+                                                                                    )
+                                                                                }}
+                                                                            </form.Field>
+                                                                        </div>
+                                                                    )}
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                    </Field>
+                                                )}
+                                            </form.Field>
+
+                                            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                                                <form.Field name="websocketEnabled">
+                                                    {field => (
+                                                        <SwitchField
+                                                            label="WebSocket"
+                                                            checked={field.state.value}
+                                                            disabled={isRequesting}
+                                                            onCheckedChange={field.handleChange}
+                                                        />
+                                                    )}
+                                                </form.Field>
+                                                <form.Field name="corsEnabled">
+                                                    {field => (
+                                                        <SwitchField
+                                                            label="关闭跨域"
+                                                            checked={field.state.value}
+                                                            disabled={isRequesting}
+                                                            onCheckedChange={field.handleChange}
+                                                        />
+                                                    )}
+                                                </form.Field>
+                                                <form.Field name="httpsEnabled">
+                                                    {field => (
+                                                        <SwitchField
+                                                            label="HTTPS"
+                                                            checked={field.state.value}
+                                                            disabled={isRequesting}
+                                                            onCheckedChange={field.handleChange}
+                                                        />
+                                                    )}
+                                                </form.Field>
+                                                <form.Field name="http2HttpsEnabled">
+                                                    {field => (
+                                                        <SwitchField
+                                                            label="HTTP 跳转"
+                                                            checked={field.state.value}
+                                                            disabled={isRequesting}
+                                                            onCheckedChange={field.handleChange}
+                                                        />
+                                                    )}
+                                                </form.Field>
+                                            </div>
+                                        </FieldGroup>
+                                    )
+                                }
+                            </form.Subscribe>
+
+                            <form.Subscribe selector={state => [state.values.serviceType, state.values.httpsEnabled]}>
+                                {([serviceType, httpsEnabled]) =>
+                                    httpsEnabled && (
+                                        <form.Field name="certificateId" validators={{ onBlur: getOnBlurValidator(certificateIdSchema.optional()) }}>
+                                            {field => {
+                                                const isInvalid = field.state.meta.isTouched && !field.state.meta.isValid
+
+                                                return (
+                                                    <Field data-invalid={isInvalid}>
+                                                        <FieldLabel>{serviceType === ProxyServiceTypeValue.端口转发 ? "SSL 证书" : "HTTPS 证书"}</FieldLabel>
+                                                        <Select
+                                                            value={field.state.value}
+                                                            disabled={isRequesting || isCertificateLoading}
+                                                            onValueChange={field.handleChange}
+                                                        >
+                                                            <SelectTrigger aria-invalid={isInvalid} onBlur={field.handleBlur}>
+                                                                <SelectValue placeholder={isCertificateLoading ? "加载证书中..." : "请选择已有自签证书"} />
+                                                            </SelectTrigger>
+                                                            <SelectContent>
+                                                                {certificateData?.list.map(certificate => (
+                                                                    <SelectItem key={certificate.id} value={certificate.id}>
+                                                                        {certificate.name}（{certificate.address}）
+                                                                    </SelectItem>
+                                                                ))}
+                                                            </SelectContent>
+                                                        </Select>
+                                                        {isInvalid && <FieldError errors={field.state.meta.errors} />}
+                                                    </Field>
+                                                )
+                                            }}
+                                        </form.Field>
+                                    )
+                                }
+                            </form.Subscribe>
+
+                            <form.Field name="remark" validators={{ onBlur: getOnBlurValidator(optionalProxyServiceRemarkSchema) }}>
+                                {field => {
+                                    const isInvalid = field.state.meta.isTouched && !field.state.meta.isValid
+
+                                    return (
+                                        <Field data-invalid={isInvalid}>
+                                            <FieldLabel htmlFor="proxy-service-remark">备注</FieldLabel>
+                                            <Textarea
+                                                id="proxy-service-remark"
+                                                autoComplete="off"
+                                                disabled={isRequesting}
+                                                aria-invalid={isInvalid}
+                                                value={field.state.value ?? ""}
+                                                onBlur={field.handleBlur}
+                                                onChange={event => field.handleChange(event.target.value || undefined)}
+                                            />
+                                            {isInvalid && <FieldError errors={field.state.meta.errors} />}
+                                        </Field>
+                                    )
+                                }}
+                            </form.Field>
+                        </FieldGroup>
+                    </form>
+                </DialogBody>
+                <DialogFooter>
+                    <Button type="button" variant="outline" disabled={isPending} onClick={onClose}>
+                        取消
+                    </Button>
+                    <form.Subscribe selector={state => [state.canSubmit, state.isSubmitting, state.isPristine]}>
+                        {([canSubmit, isSubmitting, isPristine]) => (
+                            <Button type="submit" form="proxy-service-editor-form" disabled={!canSubmit || isRequesting || isSubmitting || isPristine}>
+                                {(isRequesting || isSubmitting) && <LoaderCircleIcon className="animate-spin" />}
+                                保存
                             </Button>
-                        </div>
-                    )}
-                </Form.List>
-            </FormItem>
-            <div className="grid grid-cols-4 gap-2">
-                <FormItem<AddProxyServiceParams> name="websocketEnabled" label="WebSocket" valuePropName="checked">
-                    <Switch />
-                </FormItem>
-                <FormItem<AddProxyServiceParams> name="corsEnabled" label="关闭跨域" valuePropName="checked">
-                    <Switch />
-                </FormItem>
-                <FormItem<AddProxyServiceParams> name="httpsEnabled" label="HTTPS" valuePropName="checked">
-                    <Switch />
-                </FormItem>
-                <FormItem<AddProxyServiceParams> name="http2HttpsEnabled" label="HTTP 跳转" valuePropName="checked">
-                    <Switch />
-                </FormItem>
-            </div>
-        </div>
-    )
-}
-
-export const PortForwardDetailForm: FC = () => (
-    <div>
-        <FormItem<AddProxyServiceParams> name="httpPort" label="入站端口" rules={[schemaToRule(proxyServicePortSchema)]}>
-            <InputNumber className="w-full" min={1} max={65535} placeholder="eg: 8080" />
-        </FormItem>
-        <div className="grid grid-cols-[1fr_194px] gap-2">
-            <FormItem<AddProxyServiceParams> name="targetHost" label="转发主机" rules={[schemaToRule(proxyServiceAddressSchema)]}>
-                <Input autoComplete="off" allowClear placeholder="example.com or 10.0.0.1 or 2001:db8::1" />
-            </FormItem>
-            <FormItem<AddProxyServiceParams> name="targetPort" label="转发端口" rules={[schemaToRule(proxyServicePortSchema)]}>
-                <InputNumber className="w-full" min={1} max={65535} placeholder="eg: 8081" />
-            </FormItem>
-        </div>
-        <div className="grid grid-cols-3 gap-2">
-            <FormItem<AddProxyServiceParams> name="tcpForwardEnabled" label="TCP" valuePropName="checked">
-                <Switch />
-            </FormItem>
-            <FormItem<AddProxyServiceParams> name="udpForwardEnabled" label="UDP" valuePropName="checked">
-                <Switch />
-            </FormItem>
-            <FormItem<AddProxyServiceParams> name="httpsEnabled" label="SSL 证书" valuePropName="checked">
-                <Switch />
-            </FormItem>
-        </div>
-    </div>
-)
-
-export const SslForm: FC<SslFormProps> = ({ isPortForward }) => <SslFormContent isPortForward={isPortForward} />
-
-export const SslFormContent: FC<SslFormProps> = ({ isPortForward }) => {
-    const httpsEnabled = Form.useWatch("httpsEnabled")
-    const certificateRequired = !!httpsEnabled
-    const { data, isLoading } = useQueryCertificate({ pageSize: 1000 }, { enabled: certificateRequired })
-
-    const options = (data?.list ?? []).map(certificate => ({
-        label: `${certificate.name}（${certificate.address}）`,
-        value: certificate.id,
-    }))
-
-    if (!certificateRequired) return null
-
-    return (
-        <FormItem<AddProxyServiceParams>
-            name="certificateId"
-            label={isPortForward ? "SSL 证书" : "HTTPS 证书"}
-            rules={[{ required: true, message: isPortForward ? "请选择 SSL 证书" : "请选择 HTTPS 证书" }, schemaToRule(certificateIdSchema)]}
-        >
-            <Select loading={isLoading} showSearch={{ optionFilterProp: "label" }} options={options} placeholder="请选择已有自签证书" />
-        </FormItem>
+                        )}
+                    </form.Subscribe>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
     )
 }

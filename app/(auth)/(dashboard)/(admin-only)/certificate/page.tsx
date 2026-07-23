@@ -1,15 +1,23 @@
 "use client"
 
-import { type FC, useRef, useState } from "react"
+import { type FC, useEffect, useState } from "react"
 
-import { type TableProps, Button, DatePicker, Form, Input, Popconfirm, Table } from "antd"
-import FormItem from "antd/es/form/FormItem"
-import { formatTime, showTotal } from "deepsea-tools"
-import { type Columns, useScroll } from "soda-antd"
+import { useForm } from "@tanstack/react-form"
+import type { ColumnDef, SortingState, Updater } from "@tanstack/react-table"
+import { DownloadIcon, PlusIcon } from "lucide-react"
 import type { StateToQueryFnMap } from "soda-hooks"
 import { useQueryState } from "soda-next"
+import { z } from "zod/v4"
 
 import { CertificateEditor } from "@/components/CertificateEditor"
+import { ConfirmButton } from "@/components/ConfirmButton"
+import { DataTable } from "@/components/DataTable"
+import { DatePicker } from "@/components/DatePicker"
+
+import { Button } from "@/components/ui/button"
+import { Card, CardContent } from "@/components/ui/card"
+import { Field, FieldLabel } from "@/components/ui/field"
+import { Input } from "@/components/ui/input"
 
 import { useDeleteCertificate } from "@/hooks/useDeleteCertificate"
 import { useDownloadCertificate } from "@/hooks/useDownloadCertificate"
@@ -22,10 +30,28 @@ import { getParser } from "@/schemas"
 import { type CertificateSortByParams, certificateSortBySchema } from "@/schemas/certificateSortBy"
 import { pageNumParser } from "@/schemas/pageNum"
 import { pageSizeParser } from "@/schemas/pageSize"
-import { type SortOrderParams, sortOrderSchema } from "@/schemas/sortOrder"
+import { sortOrderSchema } from "@/schemas/sortOrder"
 
-import { getSortOrder } from "@/utils/getSortOrder"
+import { formatDateTime } from "@/utils/formatDateTime"
 import { parseQueryDate, stringifyQueryEndDate, stringifyQueryStartDate } from "@/utils/queryDate"
+
+interface CertificateFilterValues {
+    name: string
+    address: string
+    createdAfter?: Date
+    createdBefore?: Date
+    updatedAfter?: Date
+    updatedBefore?: Date
+}
+
+const certificateFilterSchema = z.object({
+    name: z.string(),
+    address: z.string(),
+    createdAfter: z.union([z.custom<Date>(), z.undefined()]),
+    createdBefore: z.union([z.custom<Date>(), z.undefined()]),
+    updatedAfter: z.union([z.custom<Date>(), z.undefined()]),
+    updatedBefore: z.union([z.custom<Date>(), z.undefined()]),
+})
 
 const queryParsers = {
     createdBefore: parseQueryDate,
@@ -52,120 +78,173 @@ const Page: FC = () => {
         stringify: queryStringifiers,
     })
 
-    type FormParams = typeof query
-
     const [showEditor, setShowEditor] = useState(false)
-    const container = useRef<HTMLDivElement>(null)
-    const { y } = useScroll(container, { paginationMargin: 32 })
-    const { createdAfter, createdBefore, updatedAfter, updatedBefore, pageNum, pageSize, ...rest } = query
 
-    const { data, isLoading } = useQueryCertificate({
-        createdAfter: createdAfter?.toDate(),
-        createdBefore: createdBefore?.toDate(),
-        updatedAfter: updatedAfter?.toDate(),
-        updatedBefore: updatedBefore?.toDate(),
-        pageNum,
-        pageSize,
-        ...rest,
+    const form = useForm({
+        defaultValues: {
+            name: query.name ?? "",
+            address: query.address ?? "",
+            createdAfter: query.createdAfter,
+            createdBefore: query.createdBefore,
+            updatedAfter: query.updatedAfter,
+            updatedBefore: query.updatedBefore,
+        } satisfies CertificateFilterValues,
+        validators: {
+            onSubmit: certificateFilterSchema,
+        },
+        onSubmit({ value }) {
+            setQuery(previous => ({
+                ...previous,
+                name: value.name.trim() || undefined,
+                address: value.address.trim() || undefined,
+                createdAfter: value.createdAfter,
+                createdBefore: value.createdBefore,
+                updatedAfter: value.updatedAfter,
+                updatedBefore: value.updatedBefore,
+                pageNum: 1,
+            }))
+        },
     })
 
-    const { mutateAsync: deleteCertificateAsync, isPending: isDeleteCertificatePending } = useDeleteCertificate()
-    const { mutateAsync: downloadCertificateAsync, isPending: isDownloadCertificatePending } = useDownloadCertificate()
-    const { mutateAsync: regenerateCertificateAsync, isPending: isRegenerateCertificatePending } = useRegenerateCertificate()
-    const isRequesting = isLoading || isDeleteCertificatePending || isDownloadCertificatePending || isRegenerateCertificatePending
+    const { data, isLoading } = useQueryCertificate({
+        name: query.name,
+        address: query.address,
+        createdAfter: query.createdAfter,
+        createdBefore: query.createdBefore,
+        updatedAfter: query.updatedAfter,
+        updatedBefore: query.updatedBefore,
+        pageNum: query.pageNum,
+        pageSize: query.pageSize,
+        sortBy: query.sortBy,
+        sortOrder: query.sortOrder,
+    })
 
-    const columns: Columns<Certificate> = [
+    const { mutateAsync: deleteCertificate, isPending: isDeleteCertificatePending } = useDeleteCertificate()
+    const { mutateAsync: downloadCertificate, isPending: isDownloadCertificatePending } = useDownloadCertificate()
+    const { mutateAsync: regenerateCertificate, isPending: isRegenerateCertificatePending } = useRegenerateCertificate()
+    const isRequesting = isLoading || isDeleteCertificatePending || isDownloadCertificatePending || isRegenerateCertificatePending
+    const sorting: SortingState = query.sortBy ? [{ id: query.sortBy, desc: query.sortOrder === "desc" }] : []
+
+    useEffect(
+        () =>
+            void form.reset({
+                name: query.name ?? "",
+                address: query.address ?? "",
+                createdAfter: query.createdAfter,
+                createdBefore: query.createdBefore,
+                updatedAfter: query.updatedAfter,
+                updatedBefore: query.updatedBefore,
+            }),
+        [form, query.address, query.createdAfter, query.createdBefore, query.name, query.updatedAfter, query.updatedBefore],
+    )
+
+    const columns: ColumnDef<Certificate>[] = [
         {
-            title: "序号",
-            key: "index",
-            align: "center",
-            fixed: "left",
-            render(value, record, index) {
-                return (pageNum - 1) * pageSize + index + 1
-            },
+            id: "index",
+            header: "序号",
+            size: 72,
+            cell: ({ row }) => (query.pageNum - 1) * query.pageSize + row.index + 1,
+        },
+        { accessorKey: "name", header: "证书名称", enableSorting: true, size: 180 },
+        { accessorKey: "address", header: "访问地址", enableSorting: true, size: 220 },
+        {
+            accessorKey: "days",
+            header: "有效期",
+            size: 100,
+            cell: ({ row }) => `${row.original.days} 天`,
         },
         {
-            title: "证书名称",
-            dataIndex: "name",
-            align: "center",
-            fixed: "left",
-            sorter: true,
-            sortOrder: getSortOrder(query, "name"),
+            accessorKey: "expiresAt",
+            header: "到期时间",
+            enableSorting: true,
+            size: 180,
+            cell: ({ row }) => formatDateTime(row.original.expiresAt),
         },
         {
-            title: "访问地址",
-            dataIndex: "address",
-            align: "center",
-            fixed: "left",
-            sorter: true,
-            sortOrder: getSortOrder(query, "address"),
+            accessorKey: "remark",
+            header: "备注",
+            size: 220,
+            cell: ({ row }) => row.original.remark || "-",
         },
         {
-            title: "有效期",
-            dataIndex: "days",
-            align: "center",
-            render(value) {
-                return `${value} 天`
-            },
+            accessorKey: "updatedAt",
+            header: "更新时间",
+            enableSorting: true,
+            size: 180,
+            cell: ({ row }) => formatDateTime(row.original.updatedAt),
         },
         {
-            title: "到期时间",
-            dataIndex: "expiresAt",
-            align: "center",
-            sorter: true,
-            sortOrder: getSortOrder(query, "expiresAt"),
-            render(value) {
-                return formatTime(value)
-            },
-        },
-        {
-            title: "备注",
-            dataIndex: "remark",
-            align: "center",
-            render(value) {
-                return value || "-"
-            },
-        },
-        {
-            title: "更新时间",
-            dataIndex: "updatedAt",
-            align: "center",
-            sorter: true,
-            sortOrder: getSortOrder(query, "updatedAt"),
-            render(value) {
-                return formatTime(value)
-            },
-        },
-        {
-            title: "操作",
-            key: "operation",
-            dataIndex: "id",
-            align: "center",
-            fixed: "right",
-            render(value) {
-                return (
-                    <div className="inline-flex gap-1">
-                        <Button size="small" color="primary" variant="text" disabled={isRequesting} onClick={() => onDownload(value)}>
-                            下载
-                        </Button>
-                        <Popconfirm title="确认重新生成自签证书" onConfirm={() => regenerateCertificateAsync(value)}>
-                            <Button size="small" color="purple" variant="text" disabled={isRequesting}>
-                                重签
-                            </Button>
-                        </Popconfirm>
-                        <Popconfirm title="确认删除自签证书" description="正在被代理服务使用的证书不能删除" onConfirm={() => deleteCertificateAsync(value)}>
-                            <Button size="small" color="danger" variant="text" disabled={isRequesting}>
-                                删除
-                            </Button>
-                        </Popconfirm>
-                    </div>
-                )
-            },
+            id: "actions",
+            header: "操作",
+            size: 180,
+            cell: ({ row }) => (
+                <div className="flex items-center gap-1">
+                    <Button size="xs" variant="ghost" disabled={isRequesting} onClick={() => void onDownload(row.original.id)}>
+                        <DownloadIcon />
+                        下载
+                    </Button>
+                    <ConfirmButton
+                        title="确认重新生成自签证书"
+                        size="xs"
+                        variant="ghost"
+                        disabled={isRequesting}
+                        pending={isRegenerateCertificatePending}
+                        onConfirm={() => regenerateCertificate(row.original.id)}
+                    >
+                        重签
+                    </ConfirmButton>
+                    <ConfirmButton
+                        title="确认删除自签证书"
+                        description="正在被代理服务使用的证书不能删除。"
+                        size="xs"
+                        variant="destructive"
+                        disabled={isRequesting}
+                        pending={isDeleteCertificatePending}
+                        onConfirm={() => deleteCertificate(row.original.id)}
+                    >
+                        删除
+                    </ConfirmButton>
+                </div>
+            ),
         },
     ]
 
+    function onSortingChange(updater: Updater<SortingState>) {
+        const nextSorting = typeof updater === "function" ? updater(sorting) : updater
+        const next = nextSorting[0]
+
+        setQuery(previous => ({
+            ...previous,
+            sortBy: next?.id as CertificateSortByParams | undefined,
+            sortOrder: next ? (next.desc ? "desc" : "asc") : undefined,
+            pageNum: 1,
+        }))
+    }
+
+    function onReset() {
+        form.reset({
+            name: "",
+            address: "",
+            createdAfter: undefined,
+            createdBefore: undefined,
+            updatedAfter: undefined,
+            updatedBefore: undefined,
+        })
+
+        setQuery(previous => ({
+            ...previous,
+            name: undefined,
+            address: undefined,
+            createdAfter: undefined,
+            createdBefore: undefined,
+            updatedAfter: undefined,
+            updatedBefore: undefined,
+            pageNum: 1,
+        }))
+    }
+
     async function onDownload(id: string) {
-        const certificate = await downloadCertificateAsync(id)
+        const certificate = await downloadCertificate(id)
         const blob = new Blob([certificate.content], { type: "application/x-pem-file" })
         const url = URL.createObjectURL(blob)
         const link = document.createElement("a")
@@ -179,75 +258,109 @@ const Page: FC = () => {
         window.setTimeout(() => URL.revokeObjectURL(url), 0)
     }
 
-    const onChange: TableProps<Certificate>["onChange"] = function onChange(pagination, filters, sorter) {
-        if (Array.isArray(sorter)) return
-
-        setQuery(prev => ({
-            ...prev,
-            sortBy: sorter.field as CertificateSortByParams,
-            sortOrder: (sorter.order ? sorter.order.slice(0, -3) : undefined) as SortOrderParams,
-        }))
-    }
-
     return (
-        <div className="flex h-full flex-col gap-4 pt-4">
+        <div className="space-y-6">
             <title>自签证书</title>
-            <div className="flex-none px-4">
-                <Form<FormParams> name="query-certificate-form" className="gap-y-4" layout="inline" onFinish={setQuery}>
-                    <FormItem<FormParams> name="name" label="证书名称">
-                        <Input allowClear />
-                    </FormItem>
-                    <FormItem<FormParams> name="address" label="访问地址">
-                        <Input allowClear />
-                    </FormItem>
-                    <FormItem<FormParams> name="createdAfter" label="创建开始日期">
-                        <DatePicker />
-                    </FormItem>
-                    <FormItem<FormParams> name="createdBefore" label="创建结束日期">
-                        <DatePicker />
-                    </FormItem>
-                    <FormItem<FormParams> name="updatedAfter" label="更新开始日期">
-                        <DatePicker />
-                    </FormItem>
-                    <FormItem<FormParams> name="updatedBefore" label="更新结束日期">
-                        <DatePicker />
-                    </FormItem>
-                    <FormItem<FormParams>>
-                        <Button htmlType="submit" type="primary" disabled={isRequesting}>
-                            查询
-                        </Button>
-                    </FormItem>
-                    <FormItem<FormParams>>
-                        <Button htmlType="button" type="text" disabled={isRequesting} onClick={() => setQuery({} as FormParams)}>
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                <div>
+                    <h1 className="text-2xl font-semibold tracking-tight">自签证书</h1>
+                    <p className="mt-1 text-sm text-muted-foreground">生成、下载和维护代理服务使用的自签证书。</p>
+                </div>
+                <Button disabled={isRequesting} onClick={() => setShowEditor(true)}>
+                    <PlusIcon />
+                    生成自签证书
+                </Button>
+            </div>
+            <Card>
+                <CardContent className="pt-6">
+                    <form
+                        className="flex flex-wrap items-end gap-3"
+                        onSubmit={event => {
+                            event.preventDefault()
+                            event.stopPropagation()
+                            void form.handleSubmit()
+                        }}
+                    >
+                        <form.Field name="name">
+                            {field => (
+                                <Field className="w-full sm:w-48">
+                                    <FieldLabel htmlFor="certificate-filter-name">证书名称</FieldLabel>
+                                    <Input id="certificate-filter-name" value={field.state.value} onChange={event => field.handleChange(event.target.value)} />
+                                </Field>
+                            )}
+                        </form.Field>
+                        <form.Field name="address">
+                            {field => (
+                                <Field className="w-full sm:w-56">
+                                    <FieldLabel htmlFor="certificate-filter-address">访问地址</FieldLabel>
+                                    <Input
+                                        id="certificate-filter-address"
+                                        value={field.state.value}
+                                        onChange={event => field.handleChange(event.target.value)}
+                                    />
+                                </Field>
+                            )}
+                        </form.Field>
+                        <form.Field name="createdAfter">
+                            {field => (
+                                <Field className="w-full sm:w-auto">
+                                    <FieldLabel>创建开始日期</FieldLabel>
+                                    <DatePicker value={field.state.value} onValueChange={field.handleChange} />
+                                </Field>
+                            )}
+                        </form.Field>
+                        <form.Field name="createdBefore">
+                            {field => (
+                                <Field className="w-full sm:w-auto">
+                                    <FieldLabel>创建结束日期</FieldLabel>
+                                    <DatePicker value={field.state.value} onValueChange={field.handleChange} />
+                                </Field>
+                            )}
+                        </form.Field>
+                        <form.Field name="updatedAfter">
+                            {field => (
+                                <Field className="w-full sm:w-auto">
+                                    <FieldLabel>更新开始日期</FieldLabel>
+                                    <DatePicker value={field.state.value} onValueChange={field.handleChange} />
+                                </Field>
+                            )}
+                        </form.Field>
+                        <form.Field name="updatedBefore">
+                            {field => (
+                                <Field className="w-full sm:w-auto">
+                                    <FieldLabel>更新结束日期</FieldLabel>
+                                    <DatePicker value={field.state.value} onValueChange={field.handleChange} />
+                                </Field>
+                            )}
+                        </form.Field>
+                        <form.Subscribe selector={state => [state.canSubmit, state.isSubmitting, state.isPristine]}>
+                            {([canSubmit, isSubmitting, isPristine]) => (
+                                <Button type="submit" disabled={!canSubmit || isRequesting || isSubmitting || isPristine}>
+                                    查询
+                                </Button>
+                            )}
+                        </form.Subscribe>
+                        <Button type="button" variant="ghost" disabled={isRequesting} onClick={onReset}>
                             重置
                         </Button>
-                    </FormItem>
-                    <Button className="ml-auto" color="primary" disabled={isRequesting} onClick={() => setShowEditor(true)}>
-                        生成自签证书
-                    </Button>
-                </Form>
-            </div>
-            <div ref={container} className="px-4 fill-y">
-                <CertificateEditor open={showEditor} onClose={() => setShowEditor(false)} />
-                <Table<Certificate>
-                    columns={columns}
-                    dataSource={data?.list}
-                    loading={isLoading}
-                    rowKey="id"
-                    onChange={onChange}
-                    scroll={{ x: "max-content", y }}
-                    pagination={{
-                        current: pageNum,
-                        pageSize,
-                        total: data?.total,
-                        showTotal,
-                        showSizeChanger: true,
-                        onChange(page, size) {
-                            setQuery(prev => ({ ...prev, pageNum: page, pageSize: size }))
-                        },
-                    }}
-                />
-            </div>
+                    </form>
+                </CardContent>
+            </Card>
+            <DataTable
+                columns={columns}
+                columnPinning={{ left: ["index", "name", "address"], right: ["actions"] }}
+                columnSizingKey="certificate"
+                data={data?.list}
+                loading={isLoading}
+                pageNum={query.pageNum}
+                pageSize={query.pageSize}
+                sorting={sorting}
+                total={data?.total}
+                getRowId={certificate => certificate.id}
+                onPageChange={(pageNum, pageSize) => setQuery(previous => ({ ...previous, pageNum, pageSize }))}
+                onSortingChange={onSortingChange}
+            />
+            <CertificateEditor open={showEditor} onClose={() => setShowEditor(false)} />
         </div>
     )
 }
