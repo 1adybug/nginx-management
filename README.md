@@ -19,6 +19,9 @@
 
 - 以 `NEXT_PUBLIC_` 开头的变量会暴露给浏览器，仅放置浏览器也需要读取的非敏感配置
 - `NODE_ENV` 由运行命令和框架控制，一般不需要手动设置
+- 开发服务读取进程环境变量 `PORT`，未设置时使用 Next.js 默认端口 `3000`
+- 开发环境的 `BETTER_AUTH_URL` 和 `NEXT_PUBLIC_BETTER_AUTH_URL` 自动使用 `http://localhost:<PORT>`，无需手动同步端口
+- 开发环境未设置 `GESHU_OAUTH_ISSUER` 时，默认使用 `http://localhost:<PORT>/api/auth`
 - `BETTER_AUTH_SECRET` 在生产环境是强制项，未配置会导致服务启动失败；开发环境会使用仅本地可用的兜底值
 - 格数账号平台登录由环境变量配置，因为 Better Auth 的 `genericOAuth` Provider 配置在当前版本中是启动时静态配置
 - `NEXT_PUBLIC_TIME_ZONE` 用于页面展示和自动备份窗口，留空时默认 `Asia/Shanghai`；该变量会进入浏览器构建产物，修改后需要重新构建镜像或前端资源，避免服务端 HTML 和浏览器 hydration 使用不同配置
@@ -32,8 +35,9 @@
 | ------------------------------- | ---- | --------------------------------------- | --------------------------------- |
 | `COOKIE_PREFIX`                 | 是   | 登录相关 Cookie 前缀                    | `geshu`                           |
 | `BETTER_AUTH_SECRET`            | 是   | Better Auth 签名密钥                    | `your_better_auth_secret`         |
-| `BETTER_AUTH_URL`               | 按需 | 服务端 Better Auth 基础地址             | `https://example.com`             |
-| `NEXT_PUBLIC_BETTER_AUTH_URL`   | 按需 | 客户端 Better Auth 基础地址             | `https://example.com`             |
+| `PORT`                          | 否   | 开发服务端口                            | `3000`                            |
+| `BETTER_AUTH_URL`               | 按需 | 生产环境服务端 Better Auth 基础地址     | `https://example.com`             |
+| `NEXT_PUBLIC_BETTER_AUTH_URL`   | 按需 | 生产环境客户端 Better Auth 基础地址     | `https://example.com`             |
 | `GESHU_OAUTH_LOGIN_ENABLED`     | 否   | 是否启用格数账号平台登录                | `1`                               |
 | `GESHU_OAUTH_ISSUER`            | 按需 | 格数账号平台地址或 OpenID Configuration | `https://auth.example.com`        |
 | `GESHU_OAUTH_CLIENT_ID`         | 按需 | 格数账号平台 OAuth Client ID            | `your_client_id`                  |
@@ -94,14 +98,21 @@ ALIYUN_ACCESS_KEY_SECRET=""
 
 服务端 `auth` 的 `baseURL` 解析顺序：
 
-1. `BETTER_AUTH_URL`
-2. 开发环境兜底 `http://localhost:3000`
+1. 开发环境固定使用 `http://localhost:<PORT>`，`PORT` 未设置时为 `3000`
+2. 生产环境使用 `BETTER_AUTH_URL`
 
 客户端 `authClient` 的 `baseURL` 解析顺序：
 
 1. 浏览器当前域名 `window.location.origin`
-2. `NEXT_PUBLIC_BETTER_AUTH_URL`
-3. 开发环境兜底 `http://localhost:3000`
+2. 服务端渲染处于开发环境时使用 `http://localhost:<PORT>`，`PORT` 未设置时为 `3000`
+3. 服务端渲染处于生产环境时使用 `NEXT_PUBLIC_BETTER_AUTH_URL`
+
+PowerShell 中可这样指定开发端口：
+
+```powershell
+$env:PORT = "3100"
+pnpm dev
+```
 
 ## 格数账号平台登录
 
