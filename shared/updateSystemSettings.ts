@@ -11,6 +11,7 @@ export const updateSystemSettings = createSharedFn({
     name: "updateSystemSettings",
     schema: updateSystemSettingsSchema,
     filter: isAdmin,
+    operationLog: false,
     rateLimit: createRateLimit({
         limit: 20,
         windowMs: 60_000,
