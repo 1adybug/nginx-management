@@ -337,6 +337,8 @@ login.rateLimit = createRateLimit({
 - 获取不到 `ip` 时回退到 `anonymous`
 - 只有配置 `TRUSTED_CLIENT_IP_HEADER` 时才读取代理传入的 IP；边缘代理必须先移除客户端同名请求头再覆盖写入
 
+日志默认记录动作及参数。参数包含密码、验证码、secret、令牌或大段配置正文时，在 `createSharedFn` 中设置 `logParams: false`，保留动作、用户、IP 和 User-Agent 事件但不保存请求参数；只有专用安全审计已替代通用事件时才使用 `operationLog: false`。
+
 ### 函数级配置
 
 当你需要按账号、手机号等字段精细限流时，可以提供 `getKey`：
