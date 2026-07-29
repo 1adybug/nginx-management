@@ -19,6 +19,7 @@ import { importUser } from "@/shared/importUser"
 import { login } from "@/shared/login"
 import { queryCertificate } from "@/shared/queryCertificate"
 import { queryErrorLog } from "@/shared/queryErrorLog"
+import { queryGeshuAgentOAuthLoginStatus } from "@/shared/queryGeshuAgentOAuthLoginStatus"
 import { queryGeshuOAuthLoginStatus } from "@/shared/queryGeshuOAuthLoginStatus"
 import { queryOperationLog } from "@/shared/queryOperationLog"
 import { queryProxyService } from "@/shared/queryProxyService"
@@ -61,6 +62,7 @@ registerRoute(importUser)
 registerRoute(login)
 registerRoute(queryCertificate)
 registerRoute(queryErrorLog)
+registerRoute(queryGeshuAgentOAuthLoginStatus)
 registerRoute(queryGeshuOAuthLoginStatus)
 registerRoute(queryOperationLog)
 registerRoute(queryProxyService)
