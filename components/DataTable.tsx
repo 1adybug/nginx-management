@@ -204,8 +204,8 @@ export function DataTable<TData extends RowData>({
     }
 
     return (
-        <div className="space-y-3">
-            <div className="overflow-hidden rounded-2xl border bg-card">
+        <div className="min-w-0 space-y-3">
+            <div className="min-w-0 overflow-hidden rounded-2xl border bg-card">
                 <div ref={tableViewportRef} className="overflow-x-auto">
                     <Table className="table-fixed" style={{ minWidth: "100%", width: `${table.getTotalSize()}px` }}>
                         <TableHeader>

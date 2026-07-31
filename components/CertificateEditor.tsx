@@ -1,6 +1,6 @@
 "use client"
 
-import { type FC, useEffect } from "react"
+import { type FC, useEffect, useRef } from "react"
 
 import { useForm } from "@tanstack/react-form"
 import { LoaderCircleIcon } from "lucide-react"
@@ -38,23 +38,31 @@ export function getDefaultCertificateFormValues(): AddCertificateParams {
 }
 
 export const CertificateEditor: FC<CertificateEditorProps> = ({ open = false, onClose }) => {
-    const { mutateAsync: addCertificate, isPending } = useAddCertificate({
-        onSuccess() {
-            onClose?.()
-        },
-    })
+    const addCertificateDraft = useRef<AddCertificateParams>(getDefaultCertificateFormValues())
+    const { mutateAsync: addCertificate, isPending } = useAddCertificate()
 
     const form = useForm({
         defaultValues: getDefaultCertificateFormValues(),
         validators: {
             onSubmit: certificateFormSchema,
         },
+        listeners: {
+            onChange({ formApi }) {
+                addCertificateDraft.current = { ...formApi.state.values }
+            },
+        },
         async onSubmit({ value }) {
             await addCertificate(addCertificateParser(value))
+            const initialValues = getDefaultCertificateFormValues()
+            addCertificateDraft.current = initialValues
+            form.reset(initialValues)
+            onClose?.()
         },
     })
 
-    useEffect(() => void form.reset(getDefaultCertificateFormValues()), [form, open])
+    useEffect(() => {
+        if (open) form.reset({ ...addCertificateDraft.current })
+    }, [form, open])
 
     function onOpenChange(nextOpen: boolean) {
         if (!nextOpen && !isPending) onClose?.()
@@ -62,7 +70,11 @@ export const CertificateEditor: FC<CertificateEditorProps> = ({ open = false, on
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent showCloseButton={!isPending}>
+            <DialogContent
+                showCloseButton={!isPending}
+                onEscapeKeyDown={event => event.preventDefault()}
+                onPointerDownOutside={event => event.preventDefault()}
+            >
                 <DialogHeader>
                     <DialogTitle>生成自签证书</DialogTitle>
                     <DialogDescription>填写证书地址、有效期与可选备注。</DialogDescription>

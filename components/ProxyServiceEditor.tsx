@@ -1,6 +1,6 @@
 "use client"
 
-import { type FC, useEffect } from "react"
+import { type FC, useEffect, useRef } from "react"
 
 import { useForm } from "@tanstack/react-form"
 import { isNonNullable } from "deepsea-tools"
@@ -125,6 +125,13 @@ export function getProxyServiceFormValues(data: ProxyService): AddProxyServicePa
     }
 }
 
+function cloneProxyServiceFormValues(values: AddProxyServiceParams): AddProxyServiceParams {
+    return {
+        ...values,
+        locations: values.locations.map(location => ({ ...location })),
+    }
+}
+
 interface SwitchFieldProps {
     label: string
     checked: boolean
@@ -141,52 +148,89 @@ const SwitchField: FC<SwitchFieldProps> = ({ label, checked, disabled, onChecked
 
 export const ProxyServiceEditor: FC<ProxyServiceEditorProps> = ({ id, defaultServiceType = ProxyServiceTypeValue.反向代理, open = false, onClose }) => {
     const isUpdate = isNonNullable(id)
+
+    const addProxyServiceDraft = useRef({
+        serviceType: defaultServiceType,
+        values: getDefaultProxyServiceFormValues({ serviceType: defaultServiceType }),
+    })
+
     const { data, isLoading } = useGetProxyService(id, { enabled: open && isUpdate })
     const { data: certificateData, isLoading: isCertificateLoading } = useQueryCertificate({ pageSize: 1000 }, { enabled: open })
 
-    const { mutateAsync: addProxyService, isPending: isAddProxyServicePending } = useAddProxyService({
-        onSuccess() {
-            onClose?.()
-        },
-    })
+    const { mutateAsync: addProxyService, isPending: isAddProxyServicePending } = useAddProxyService()
 
-    const { mutateAsync: updateProxyService, isPending: isUpdateProxyServicePending } = useUpdateProxyService({
-        onSuccess() {
-            onClose?.()
-        },
-    })
+    const { mutateAsync: updateProxyService, isPending: isUpdateProxyServicePending } = useUpdateProxyService()
 
     const form = useForm({
         defaultValues: getDefaultProxyServiceFormValues({ serviceType: defaultServiceType }),
         validators: {
             onSubmit: proxyServiceFormSchema,
         },
+        listeners: {
+            onChange({ formApi }) {
+                if (isUpdate) return
+
+                addProxyServiceDraft.current = {
+                    serviceType: defaultServiceType,
+                    values: cloneProxyServiceFormValues(formApi.state.values),
+                }
+            },
+        },
         async onSubmit({ value }) {
             const values = addProxyServiceParser(value)
 
-            if (id) await updateProxyService(updateProxyServiceParser({ id, ...values }))
-            else await addProxyService(values)
+            if (id) {
+                await updateProxyService(updateProxyServiceParser({ id, ...values }))
+                onClose?.()
+                return
+            }
+
+            await addProxyService(values)
+            const initialValues = getDefaultProxyServiceFormValues({ serviceType: defaultServiceType })
+            addProxyServiceDraft.current = {
+                serviceType: defaultServiceType,
+                values: cloneProxyServiceFormValues(initialValues),
+            }
+            form.reset(initialValues)
+            onClose?.()
         },
     })
 
     useEffect(() => {
-        if (!open || !isUpdate) form.reset(getDefaultProxyServiceFormValues({ serviceType: defaultServiceType }))
-    }, [defaultServiceType, form, isUpdate, open])
+        if (!open) return
 
-    useEffect(() => {
-        if (open && data) form.reset(getProxyServiceFormValues(data))
-    }, [data, form, open])
+        if (!isUpdate) {
+            const initialValues =
+                addProxyServiceDraft.current.serviceType === defaultServiceType
+                    ? cloneProxyServiceFormValues(addProxyServiceDraft.current.values)
+                    : getDefaultProxyServiceFormValues({ serviceType: defaultServiceType })
+
+            addProxyServiceDraft.current = {
+                serviceType: defaultServiceType,
+                values: cloneProxyServiceFormValues(initialValues),
+            }
+            form.reset(initialValues)
+            return
+        }
+
+        form.reset(data?.id === id ? getProxyServiceFormValues(data) : getDefaultProxyServiceFormValues({ serviceType: defaultServiceType }))
+    }, [data, defaultServiceType, form, id, isUpdate, open])
 
     const isPending = isAddProxyServicePending || isUpdateProxyServicePending
     const isRequesting = isLoading || isPending
 
     function onOpenChange(nextOpen: boolean) {
-        if (!nextOpen && !isPending) onClose?.()
+        if (!nextOpen && !isRequesting) onClose?.()
     }
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="sm:max-w-4xl" showCloseButton={!isPending}>
+            <DialogContent
+                className="sm:max-w-4xl"
+                showCloseButton={!isRequesting}
+                onEscapeKeyDown={event => event.preventDefault()}
+                onPointerDownOutside={event => event.preventDefault()}
+            >
                 <DialogHeader>
                     <form.Subscribe selector={state => state.values.serviceType}>
                         {serviceType => (
@@ -841,7 +885,7 @@ export const ProxyServiceEditor: FC<ProxyServiceEditorProps> = ({ id, defaultSer
                     </form>
                 </DialogBody>
                 <DialogFooter>
-                    <Button type="button" variant="outline" disabled={isPending} onClick={onClose}>
+                    <Button type="button" variant="outline" disabled={isRequesting} onClick={onClose}>
                         取消
                     </Button>
                     <form.Subscribe selector={state => [state.canSubmit, state.isSubmitting, state.isPristine]}>
