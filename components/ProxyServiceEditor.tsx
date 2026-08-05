@@ -1,6 +1,6 @@
 "use client"
 
-import { type FC, useEffect, useRef } from "react"
+import { type FC, useEffect, useMemo, useRef } from "react"
 
 import { useForm } from "@tanstack/react-form"
 import { isNonNullable } from "deepsea-tools"
@@ -157,12 +157,17 @@ export const ProxyServiceEditor: FC<ProxyServiceEditorProps> = ({ id, defaultSer
     const { data, isLoading } = useGetProxyService(id, { enabled: open && isUpdate })
     const { data: certificateData, isLoading: isCertificateLoading } = useQueryCertificate({ pageSize: 1000 }, { enabled: open })
 
+    const defaultValues = useMemo(
+        () => (data && data.id === id ? getProxyServiceFormValues(data) : getDefaultProxyServiceFormValues({ serviceType: defaultServiceType })),
+        [data, defaultServiceType, id],
+    )
+
     const { mutateAsync: addProxyService, isPending: isAddProxyServicePending } = useAddProxyService()
 
     const { mutateAsync: updateProxyService, isPending: isUpdateProxyServicePending } = useUpdateProxyService()
 
     const form = useForm({
-        defaultValues: getDefaultProxyServiceFormValues({ serviceType: defaultServiceType }),
+        defaultValues,
         validators: {
             onSubmit: proxyServiceFormSchema,
         },
@@ -209,12 +214,12 @@ export const ProxyServiceEditor: FC<ProxyServiceEditorProps> = ({ id, defaultSer
                 serviceType: defaultServiceType,
                 values: cloneProxyServiceFormValues(initialValues),
             }
-            form.reset(initialValues)
+            form.reset(initialValues, { keepDefaultValues: true })
             return
         }
 
-        form.reset(data?.id === id ? getProxyServiceFormValues(data) : getDefaultProxyServiceFormValues({ serviceType: defaultServiceType }))
-    }, [data, defaultServiceType, form, id, isUpdate, open])
+        form.reset(defaultValues)
+    }, [defaultServiceType, defaultValues, form, isUpdate, open])
 
     const isPending = isAddProxyServicePending || isUpdateProxyServicePending
     const isRequesting = isLoading || isPending

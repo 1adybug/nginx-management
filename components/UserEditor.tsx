@@ -1,6 +1,6 @@
 "use client"
 
-import { type FC, useEffect, useRef } from "react"
+import { type FC, useEffect, useMemo, useRef } from "react"
 
 import { useForm } from "@tanstack/react-form"
 import { LoaderCircleIcon } from "lucide-react"
@@ -43,6 +43,19 @@ export const UserEditor: FC<UserEditorProps> = ({ id, open = false, onClose }) =
     const addUserDraft = useRef<AddUserParams>({ ...addUserInitialValues })
     const { data, isLoading } = useGetUser(id, { enabled: open })
 
+    const defaultValues = useMemo<AddUserParams>(
+        () =>
+            data && data.id === id
+                ? {
+                      name: data.name,
+                      nickname: data.nickname ?? "",
+                      phoneNumber: data.phoneNumber ?? "",
+                      role: data.role,
+                  }
+                : { ...addUserInitialValues },
+        [data, id],
+    )
+
     const { mutateAsync: addUser, isPending: isAddUserPending } = useAddUser()
 
     const { mutateAsync: updateUser, isPending: isUpdateUserPending } = useUpdateUser({
@@ -52,7 +65,7 @@ export const UserEditor: FC<UserEditorProps> = ({ id, open = false, onClose }) =
     })
 
     const form = useForm({
-        defaultValues: { ...addUserInitialValues },
+        defaultValues,
         validators: {
             onSubmit: addUserSchema,
         },
@@ -75,21 +88,12 @@ export const UserEditor: FC<UserEditorProps> = ({ id, open = false, onClose }) =
         if (!open) return
 
         if (!isUpdate) {
-            form.reset({ ...addUserDraft.current })
+            form.reset({ ...addUserDraft.current }, { keepDefaultValues: true })
             return
         }
 
-        form.reset(
-            data?.id === id
-                ? {
-                      name: data.name,
-                      nickname: data.nickname ?? "",
-                      phoneNumber: data.phoneNumber ?? "",
-                      role: data.role,
-                  }
-                : { ...addUserInitialValues },
-        )
-    }, [data, form, id, isUpdate, open])
+        form.reset(defaultValues)
+    }, [defaultValues, form, isUpdate, open])
 
     const isPending = isLoading || isAddUserPending || isUpdateUserPending
 
