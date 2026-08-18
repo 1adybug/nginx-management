@@ -56,6 +56,7 @@ COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/prisma.config.ts ./prisma.config.ts
 COPY --from=builder /app/scripts/finalize-better-auth-account-issuers.mjs ./scripts/finalize-better-auth-account-issuers.mjs
+COPY --from=builder /app/scripts/preflight-better-auth-1-7.mjs ./scripts/preflight-better-auth-1-7.mjs
 COPY --from=deps /app/node_modules/prisma/package.json ./prisma-package.json
 RUN mkdir -p /app/data && chown -R nextjs:nodejs /app/data
 RUN setcap "cap_net_bind_service=+ep" /usr/sbin/nginx
@@ -112,6 +113,7 @@ RUN printf '%s\n' \
     'chown -R nextjs:nodejs /app/data' \
     'chmod -R u+rwX,g+rwX /app/data' \
     'touch /app/data/production.db' \
+    'node scripts/preflight-better-auth-1-7.mjs --environment production' \
     'prisma migrate deploy' \
     'node scripts/finalize-better-auth-account-issuers.mjs --environment production' \
     'chown -R nextjs:nodejs /app/data' \

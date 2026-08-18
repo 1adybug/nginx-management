@@ -32,32 +32,34 @@
 
 ### 变量清单
 
-| 变量名                            | 必填 | 说明                                        | 示例 / 默认值                        |
-| --------------------------------- | ---- | ------------------------------------------- | ------------------------------------ |
-| `COOKIE_PREFIX`                   | 是   | 登录相关 Cookie 前缀                        | `geshu`                              |
-| `BETTER_AUTH_SECRET`              | 是   | Better Auth 签名密钥                        | `your_better_auth_secret`            |
-| `PORT`                            | 否   | 开发服务端口                                | `3000`                               |
-| `BETTER_AUTH_URL`                 | 按需 | 生产环境服务端 Better Auth 基础地址         | `https://example.com`                |
-| `NEXT_PUBLIC_BETTER_AUTH_URL`     | 按需 | 生产环境客户端 Better Auth 基础地址         | `https://example.com`                |
-| `GESHU_OAUTH_LOGIN_ENABLED`       | 否   | 是否启用格数账号平台登录                    | `0`                                  |
-| `GESHU_OAUTH_ISSUER`              | 按需 | 格数账号平台地址或 OpenID Configuration     | `https://auth.example.com`           |
-| `GESHU_OAUTH_CLIENT_ID`           | 按需 | 格数账号平台 OAuth Client ID                | `your_client_id`                     |
-| `GESHU_OAUTH_CLIENT_SECRET`       | 按需 | 格数账号平台 OAuth Client Secret            | `your_client_secret`                 |
-| `GESHU_OAUTH_ALLOW_CREATE_USER`   | 否   | 手机号未匹配本地用户时是否创建普通用户      | `0`                                  |
-| `GESHU_AGENT_OAUTH_LOGIN_ENABLED` | 否   | 是否启用 geshu-agent 登录与绑定入口         | `0`                                  |
-| `GESHU_AGENT_OAUTH_ISSUER`        | 按需 | geshu-agent issuer，必须以 `/api/auth` 结尾 | `https://agent.example.com/api/auth` |
-| `GESHU_AGENT_OAUTH_CLIENT_ID`     | 按需 | geshu-agent OAuth Client ID                 | `your_agent_client_id`               |
-| `GESHU_AGENT_OAUTH_CLIENT_SECRET` | 按需 | geshu-agent OAuth Client Secret             | `your_agent_client_secret`           |
-| `NEXT_OUTPUT`                     | 否   | Next 构建输出模式                           | `standalone` / `export`              |
-| `NEXT_TELEMETRY_DISABLED`         | 否   | 是否关闭 Next 遥测上报                      | `1`                                  |
-| `NEXT_PUBLIC_TIME_ZONE`           | 否   | 应用时间时区，留空默认上海                  | `Asia/Shanghai`                      |
-| `REDIS_URL`                       | 按需 | Redis 地址（仅接入 Redis 限流存储时用）     | `redis://127.0.0.1:6379`             |
-| `TRUSTED_CLIENT_IP_HEADER`        | 按需 | 指定可信反向代理覆盖写入的客户端 IP 头      | `x-real-ip`                          |
-| `DEFAULT_EMAIL_DOMAIN`            | 否   | 手机号注册时生成临时邮箱所使用的域名        | `example.com`                        |
-| `IS_INTRANET`                     | 否   | 是否使用内网短信通道                        | `0`                                  |
-| `QJP_SMS_URL`                     | 按需 | 内网短信服务地址                            | `http://sms.example.com`             |
-| `ALIYUN_ACCESS_KEY_ID`            | 按需 | 阿里云短信 AccessKey ID                     | `your_access_key_id`                 |
-| `ALIYUN_ACCESS_KEY_SECRET`        | 按需 | 阿里云短信 AccessKey Secret                 | `your_access_key_secret`             |
+| 变量名                                  | 必填   | 说明                                         | 示例 / 默认值                        |
+| --------------------------------------- | ------ | -------------------------------------------- | ------------------------------------ |
+| `COOKIE_PREFIX`                         | 是     | 登录相关 Cookie 前缀                         | `geshu`                              |
+| `BETTER_AUTH_SECRET`                    | 是     | Better Auth 签名密钥                         | `your_better_auth_secret`            |
+| `PORT`                                  | 否     | 开发服务端口                                 | `3000`                               |
+| `BETTER_AUTH_URL`                       | 按需   | 生产环境服务端 Better Auth 基础地址          | `https://example.com`                |
+| `NEXT_PUBLIC_BETTER_AUTH_URL`           | 按需   | 生产环境客户端 Better Auth 基础地址          | `https://example.com`                |
+| `GESHU_OAUTH_LOGIN_ENABLED`             | 否     | 是否启用格数账号平台登录                     | `0`                                  |
+| `GESHU_OAUTH_ISSUER`                    | 按需   | 格数账号平台地址或 OpenID Configuration      | `https://auth.example.com`           |
+| `GESHU_OAUTH_CLIENT_ID`                 | 按需   | 格数账号平台 OAuth Client ID                 | `your_client_id`                     |
+| `GESHU_OAUTH_CLIENT_SECRET`             | 按需   | 格数账号平台 OAuth Client Secret             | `your_client_secret`                 |
+| `GESHU_OAUTH_ALLOW_CREATE_USER`         | 否     | 手机号未匹配本地用户时是否创建普通用户       | `0`                                  |
+| `GESHU_AGENT_OAUTH_LOGIN_ENABLED`       | 否     | 是否启用 geshu-agent 登录与绑定入口          | `0`                                  |
+| `GESHU_AGENT_OAUTH_ISSUER`              | 按需   | geshu-agent issuer，必须以 `/api/auth` 结尾  | `https://agent.example.com/api/auth` |
+| `GESHU_AGENT_OAUTH_CLIENT_ID`           | 按需   | geshu-agent OAuth Client ID                  | `your_agent_client_id`               |
+| `GESHU_AGENT_OAUTH_CLIENT_SECRET`       | 按需   | geshu-agent OAuth Client Secret              | `your_agent_client_secret`           |
+| `BETTER_AUTH_ACCOUNT_ISSUER_MAP`        | 按需   | 项目特有 Provider 到可信 issuer 的 JSON 映射 | `{}`                                 |
+| `BETTER_AUTH_1_7_MAINTENANCE_CONFIRMED` | 仅升级 | 首次生产迁移已停止认证写入的临时确认开关     | `0`                                  |
+| `NEXT_OUTPUT`                           | 否     | Next 构建输出模式                            | `standalone` / `export`              |
+| `NEXT_TELEMETRY_DISABLED`               | 否     | 是否关闭 Next 遥测上报                       | `1`                                  |
+| `NEXT_PUBLIC_TIME_ZONE`                 | 否     | 应用时间时区，留空默认上海                   | `Asia/Shanghai`                      |
+| `REDIS_URL`                             | 按需   | Redis 地址（仅接入 Redis 限流存储时用）      | `redis://127.0.0.1:6379`             |
+| `TRUSTED_CLIENT_IP_HEADER`              | 按需   | 指定可信反向代理覆盖写入的客户端 IP 头       | `x-real-ip`                          |
+| `DEFAULT_EMAIL_DOMAIN`                  | 否     | 手机号注册时生成临时邮箱所使用的域名         | `example.com`                        |
+| `IS_INTRANET`                           | 否     | 是否使用内网短信通道                         | `0`                                  |
+| `QJP_SMS_URL`                           | 按需   | 内网短信服务地址                             | `http://sms.example.com`             |
+| `ALIYUN_ACCESS_KEY_ID`                  | 按需   | 阿里云短信 AccessKey ID                      | `your_access_key_id`                 |
+| `ALIYUN_ACCESS_KEY_SECRET`              | 按需   | 阿里云短信 AccessKey Secret                  | `your_access_key_secret`             |
 
 ### 推荐的本地 `.env` 示例
 
@@ -83,6 +85,10 @@ GESHU_AGENT_OAUTH_LOGIN_ENABLED="0"
 GESHU_AGENT_OAUTH_ISSUER="https://agent.example.com/api/auth"
 GESHU_AGENT_OAUTH_CLIENT_ID="your_agent_client_id"
 GESHU_AGENT_OAUTH_CLIENT_SECRET="your_agent_client_secret"
+
+# Better Auth 1.7 首次数据升级（完成后删除维护确认变量）
+BETTER_AUTH_ACCOUNT_ISSUER_MAP=""
+BETTER_AUTH_1_7_MAINTENANCE_CONFIRMED="0"
 
 # 构建与运行
 NEXT_OUTPUT="standalone"
@@ -128,15 +134,23 @@ pnpm dev
 
 ### Better Auth 1.7 数据升级
 
-Better Auth 1.7 使用 `issuer + accountId` 标识 Provider 侧账户，且不会重命名数据库中的 `accountId` 字段；本地账户行仍由
-`account.id` 标识。升级已有数据库必须安排维护窗口并停止登录、绑定和解绑写入，然后按以下顺序执行：
+正式版 Better Auth 1.7 使用 `issuer + accountId` 标识 Provider 侧账户，持久化字段仍叫 `account.accountId`，没有
+`providerAccountId` 重命名。本地账户记录的 selector 则使用 `account.id`；两者不可互换。
 
-1. 单独备份 `account`、`user` 表和数据库文件，并清点所有 `providerId`；不要把定时备份是否恰好完成当作本次升级备份。
-2. 在项目自己的迁移中先把 `issuer` 增加为可空字段。credential 行写入 `issuer = local:credential` 且
-   `accountId = userId`；OAuth 行保留原 `accountId`，临时写入 `local:oauth:${encodeURIComponent(providerId)}`。
-3. 为有可信 issuer 的每个 Provider 建立明确映射。模板内置的 `geshu-oauth` 从受信任的 Discovery 文档读取 issuer，
-   `geshu-agent-oauth` 使用已校验的配置；项目新增 Provider 通过 `BETTER_AUTH_ACCOUNT_ISSUER_MAP` 提供 JSON 映射，不得从邮箱、昵称或请求参数推导。
-4. 在增加唯一索引前执行碰撞检查；任何结果都必须先依据可信 Provider 数据确定保留记录，不能按邮箱自动合并用户：
+本项目跟踪 Prisma 迁移。升级已有数据库必须安排维护窗口，停止登录、账户绑定和解绑写入，并按以下步骤执行：
+
+1. 在生产环境临时设置 `BETTER_AUTH_1_7_MAINTENANCE_CONFIRMED=1`。`db:prod` 和容器启动入口会在 Prisma 迁移前执行
+   `scripts/preflight-better-auth-1-7.mjs`，未明确确认维护状态时会拒绝迁移。
+2. 预检会把 SQLite 在线备份写入 `data/backups/better-auth-1.7`，执行 `PRAGMA integrity_check`，并输出完整 Provider 清单。
+   仍应把该备份复制到独立存储；不要依赖定时备份是否刚好完成。
+3. `20260818210000_better_auth_account_issuer` 先在可空 staging 表回填身份：credential 使用
+   `issuer = local:credential`、`accountId = userId`；OAuth 保留原 `accountId`，并使用
+   `local:oauth:${encodeURIComponent(providerId)}` 合成 issuer。迁移在替换原表前检查空值和身份碰撞，最后才建立
+   `issuer + accountId` 唯一索引。
+4. `20260818213000_canonical_better_auth_account_issuer` 是独立的增量校正门禁，用于拒绝 RC 阶段字段或不规范身份；不要修改、
+   重命名或重写已部署的历史迁移。Provider ID 含 URI 保留字符时，SQLite 无法计算 `encodeURIComponent`，预检会停止，
+   此时必须新增一条显式写入编码结果的迁移。
+5. 在增加唯一索引前会执行等价的碰撞检查；任何结果都必须依据可信 Provider 数据人工确认归属，不能按邮箱、昵称或手机号自动合并用户：
 
     ```sql
     SELECT issuer, accountId, COUNT(*) AS accountCount, COUNT(DISTINCT userId) AS userCount
@@ -145,11 +159,11 @@ Better Auth 1.7 使用 `issuer + accountId` 标识 Provider 侧账户，且不�
     HAVING COUNT(*) > 1;
     ```
 
-5. 确认每行都有非空 `issuer` 与 `accountId` 后，再把 `issuer` 设为必填并创建 `issuer + accountId` 唯一索引，然后运行对应环境的
-   `db:dev` 或 `db:prod`。启动前的 finalizer 会再次检查唯一索引、合成 issuer 格式和目标身份碰撞，并在安全条件不满足时停止启动。
-
-本模板不跟踪 `prisma/migrations`，派生项目必须手写并审查自己的兼容迁移。碰撞查询无结果、唯一索引存在且 finalizer 完成前，不要部署
-Better Auth 1.7。
+6. Prisma 迁移后，finalizer 会从受信任的 Discovery 或配置读取真实 issuer，再次检查索引、规范格式和目标身份碰撞，并在
+   SQLite immediate transaction 中更新映射。`geshu-oauth` 使用 Discovery；`geshu-agent-oauth` 使用已校验的 issuer；其他 Provider
+   必须通过 `BETTER_AUTH_ACCOUNT_ISSUER_MAP` 提供明确 JSON 映射，不能从用户资料或请求参数推导。
+7. 确认迁移和 finalizer 成功后，删除 `BETTER_AUTH_1_7_MAINTENANCE_CONFIRMED`，恢复认证写入。若门禁失败，保留备份和现场，
+   新增可审计迁移处理，不要修改历史迁移或让应用带着半完成身份数据启动。
 
 ## 格数账号平台登录
 
